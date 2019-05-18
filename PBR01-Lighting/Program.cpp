@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <cstdio>
 #include <cassert>
+#include <chrono>
 //for GLEW
 #include "../GLEW/include/GL/glew.h"
 #include <GL/GL.h>
@@ -30,16 +31,21 @@ GLint attributeNormal = 0;
 GLint uniformModel = 0;
 GLint uniformView = 0;
 GLint uniformProjection = 0;
+GLint uniformMetallic = 0;
+GLint uniformRoughness = 0;
+GLint uniformLightPositions = 0;
+GLint uniformLightColors = 0;
 GLenum err = GL_NO_ERROR;
 
 //misc
 int clientWidth;
 int clientHeight;
+std::chrono::high_resolution_clock::time_point startTime;
 BOOL CreateOpenGLRenderContext(HWND hWnd);
 BOOL InitGLEW();
 BOOL InitOpenGL(HWND hWnd);
 void DestroyOpenGL(HWND hWnd);
-void Render(HWND hWnd);
+void Render();
 void fnCheckGLError(const char* szFile, int nLine);
 #define _CheckGLError_ fnCheckGLError(__FILE__,__LINE__);
 
@@ -58,7 +64,7 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
     wc.style = CS_OWNDC;
     if (!RegisterClass(&wc))
         return 1;
-    HWND hWnd = CreateWindowW(wc.lpszClassName, L"PBR01-Lighting", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 640, 480, 0, 0, hInstance, 0);
+    HWND hWnd = CreateWindowW(wc.lpszClassName, L"PBR01-Lighting", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 800, 600, 0, 0, hInstance, 0);
 
     ShowWindow(hWnd, nShowCmd);
     UpdateWindow(hWnd);
@@ -83,6 +89,7 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
     //set up OpenGL
     InitOpenGL(hWnd);
 
+    startTime = std::chrono::high_resolution_clock::now();
     while (true)
     {
         if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != 0)
@@ -96,7 +103,7 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
         }
         else
         {
-            Render(hWnd);
+            Render();
         }
     }
 
@@ -322,6 +329,19 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* pShaderStr)
 #include "VertexShader.hpp"
 #include "FragmentShader.hpp"
 
+glm::vec3 lightPositions[] = {
+    glm::vec3(-10.0f,  10.0f, 10.0f),
+    glm::vec3( 10.0f,  10.0f, 10.0f),
+    glm::vec3(-10.0f, -10.0f, 10.0f),
+    glm::vec3( 10.0f, -10.0f, 10.0f),
+};
+glm::vec3 lightColors[] = {
+    glm::vec3(300.0f, 300.0f, 300.0f),
+    glm::vec3(300.0f, 300.0f, 300.0f),
+    glm::vec3(300.0f, 300.0f, 300.0f),
+    glm::vec3(300.0f, 300.0f, 300.0f)
+};
+
 BOOL InitOpenGL(HWND hWnd)
 {
     //create program
@@ -339,56 +359,37 @@ BOOL InitOpenGL(HWND hWnd)
 
     // material parameters
     GLint uniformAlbedo = glGetUniformLocation(program, "albedo");
-    GLint uniformMetallic = glGetUniformLocation(program, "metallic");
-    GLint uniformRoughness = glGetUniformLocation(program, "roughness");
+    uniformMetallic = glGetUniformLocation(program, "metallic");
+    uniformRoughness = glGetUniformLocation(program, "roughness");
     GLint uniformAo = glGetUniformLocation(program, "ao");
 
     // lights
-    GLint uniformLightPositions = glGetUniformLocation(program, "lightPositions");
-    GLint uniformLightColors = glGetUniformLocation(program, "lightColors");
+    uniformLightPositions = glGetUniformLocation(program, "lightPositions");
+    uniformLightColors = glGetUniformLocation(program, "lightColors");
 
     GLint uniformCamPos = glGetUniformLocation(program, "camPos");
 
     _CheckGLError_
 
     glUseProgram(program);
-    //MVP
+    //static projection and view
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)clientWidth / (float)clientHeight, 0.1f, 100.0f);
     glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
-    glm::vec3 camPos = glm::vec3(0.0f, 0.0f, 5.0f);
+    glm::vec3 camPos = glm::vec3(0.0f, 0.0f, 11.0f);
     glm::mat4 view = glm::lookAt(camPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(view));
-    glm::mat4 model = glm::mat4(1.0f);
-    glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 
-    // material parameters
+    //static albedo and AO
     glUniform3f(uniformAlbedo, 0.5f, 0.0f, 0.0f);
-    glUniform1f(uniformMetallic, 0.5f);
-    glUniform1f(uniformRoughness, 0.5f);
     glUniform1f(uniformAo, 1.0f);
 
-    // lights
-    glm::vec3 lightPositions[] = {
-        glm::vec3(-10.0f,  10.0f, 10.0f),
-        glm::vec3( 10.0f,  10.0f, 10.0f),
-        glm::vec3(-10.0f, -10.0f, 10.0f),
-        glm::vec3( 10.0f, -10.0f, 10.0f),
-    };
-    glm::vec3 lightColors[] = {
-        glm::vec3(300.0f, 300.0f, 300.0f),
-        glm::vec3(300.0f, 300.0f, 300.0f),
-        glm::vec3(300.0f, 300.0f, 300.0f),
-        glm::vec3(300.0f, 300.0f, 300.0f)
-    };
-    glUniform3fv(uniformLightPositions, 4, (const GLfloat*)&lightPositions[0]);
-    glUniform3fv(uniformLightColors, 4, (const GLfloat*)&lightColors[0]);
-
+    //static camera position
     glUniform3f(uniformCamPos, camPos.x, camPos.y, camPos.z);
-
     glUseProgram(0);
 
     _CheckGLError_
 
+    //set up vertex and index buffer
     glGenBuffers(1, &vertexBuf);
     assert(vertexBuf != 0);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuf);
@@ -399,11 +400,11 @@ BOOL InitOpenGL(HWND hWnd)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuf);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), (GLvoid*)indices, GL_STATIC_DRAW);
 
-    //set attribute of positon and texcoord
+    //set up attribute for positon, texcoord and normal
     glVertexAttribPointer(attributePos,      3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
     glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glVertexAttribPointer(attributeNormal,   3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
-    //enable attribute array
+    //enable attribute arrays
     glEnableVertexAttribArray(attributePos);
     glEnableVertexAttribArray(attributeTexCoord);
     glEnableVertexAttribArray(attributeNormal);
@@ -412,7 +413,7 @@ BOOL InitOpenGL(HWND hWnd)
 
     //other settings
     glViewport(0, 0, GLsizei(clientWidth), GLsizei(clientHeight));
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glDisable(GL_CULL_FACE);
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
@@ -426,27 +427,71 @@ BOOL InitOpenGL(HWND hWnd)
 
 void DestroyOpenGL(HWND hWnd)
 {
-    //OpenGL Destroy
+    //Destroy OpenGL objects
     glDeleteShader(vShader);
     glDeleteShader(pShader);
     glDeleteProgram(program);
 
-    //OpenGL Context Destroy
+    //Destroy OpenGL Context
     wglMakeCurrent(NULL, NULL);
     wglDeleteContext(openGLRC);
+
+    //Release the device context
     ReleaseDC(hWnd, hDC);
 }
 
-void Render(HWND hWnd)
+int nrRows    = 7;
+int nrColumns = 7;
+float spacing = 1.2;
+
+void Render()
 {
+    auto now = std::chrono::high_resolution_clock::now();
+    auto time_span = now - startTime;
+    auto passedTime = time_span.count()/1000;
+
     // clear
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // draw
+    // draw model
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuf);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuf);
     glUseProgram(program);
-    glDrawElements(GL_TRIANGLES, sizeof(indices)/3, GL_UNSIGNED_INT, 0);
+
+    // render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
+    // move light positions
+    glm::vec3 newLightPositions[] = { glm::vec3(), glm::vec3(), glm::vec3(), glm::vec3() };
+    for (unsigned int i = 0; i < sizeof(lightPositions) / sizeof(lightPositions[0]); ++i)
+    {
+        glm::vec4 p = glm::vec4(lightPositions[i], 0);
+        auto rotation = glm::rotate(glm::mat4(1), glm::radians(0.0001f*passedTime), glm::vec3(1.0f, 1.0f, 0.0f));
+        p = rotation * p;
+        newLightPositions[i] = p;
+    }
+    glUniform3fv(uniformLightPositions, 4, (const GLfloat*)&newLightPositions[0]);
+    glUniform3fv(uniformLightColors, 4, (const GLfloat*)&lightColors[0]);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    for (int row = 0; row < nrRows; ++row)
+    {
+        glUniform1f(uniformMetallic, (float)row / (float)nrRows);
+        for (int col = 0; col < nrColumns; ++col)
+        {
+            // we clamp the roughness to 0.025 - 1.0 as perfectly smooth surfaces (roughness of 0.0) tend to look a bit off
+            // on direct lighting.
+            glUniform1f(uniformRoughness, glm::clamp((float)col / (float)nrColumns, 0.05f, 1.0f));
+
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(
+                (col - (nrColumns / 2)) * spacing,
+                (row - (nrRows / 2)) * spacing,
+                0.0f
+            ));
+            glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
+
+            glDrawElements(GL_TRIANGLES, sizeof(indices)/3, GL_UNSIGNED_INT, 0);
+        }
+    }
 
     _CheckGLError_
 
