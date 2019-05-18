@@ -93,7 +93,9 @@
     <ClCompile Include="Program.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FragmentShader.hpp" />
     <ClInclude Include="Sphere.hpp" />
+    <ClInclude Include="VertexShader.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
