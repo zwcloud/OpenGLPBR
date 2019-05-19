@@ -1,5 +1,6 @@
 #pragma once
-const char* pShaderStr = R"(
+//from https://learnopengl.com/PBR/Lighting
+const char* fShaderStr = R"(
 #version 330 core
 out vec4 FragColor;
 in vec2 TexCoords;
@@ -119,7 +120,6 @@ void main()
     // gamma correct
     color = pow(color, vec3(1.0/2.2));
 
-    //FragColor = vec4(color.r*0.001 + 0.5, 0.0, 0.0, 1.0);
     FragColor = vec4(color, 1.0);
 }
 )";

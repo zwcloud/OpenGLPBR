@@ -237,7 +237,7 @@ void fnCheckGLError(const char* szFile, int nLine)
     }
 }
 
-GLuint CreateShaderProgram(const char* vShaderStr, const char* pShaderStr)
+GLuint CreateShaderProgram(const char* vShaderStr, const char* fShaderStr)
 {
     GLint compiled;
     //Vertex shader
@@ -274,7 +274,7 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* pShaderStr)
         OutputDebugString(L"glCreateShader Failed!\n");
         return -1;
     }
-    glShaderSource(pShader, 1, &pShaderStr, nullptr);
+    glShaderSource(pShader, 1, &fShaderStr, nullptr);
     glCompileShader(pShader);
     glGetShaderiv(pShader, GL_COMPILE_STATUS, &compiled);
     if (!compiled)
@@ -345,7 +345,7 @@ glm::vec3 lightColors[] = {
 BOOL InitOpenGL(HWND hWnd)
 {
     //create program
-    program = CreateShaderProgram(vShaderStr, pShaderStr);
+    program = CreateShaderProgram(vShaderStr, fShaderStr);
     _CheckGLError_
 
     //attribute
