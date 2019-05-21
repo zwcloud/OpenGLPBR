@@ -11,3 +11,6 @@ Open OpenGLOutline.sln in VS2017, press F5 to build & run one of the projects as
 ![](doc/1.png)
 
 https://www.youtube.com/watch?v=dDbY8KeLm9I
+
+![](doc/2.png)
+
