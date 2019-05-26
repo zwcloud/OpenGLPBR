@@ -62,11 +62,11 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInstance;
     wc.hbrBackground = (HBRUSH)(COLOR_BACKGROUND);
-    wc.lpszClassName = L"PBR01-LightingWindowClass";
+    wc.lpszClassName = L"PBR03-IBL-diffuseWindowClass";
     wc.style = CS_OWNDC;
     if (!RegisterClass(&wc))
         return 1;
-    HWND hWnd = CreateWindowW(wc.lpszClassName, L"PBR01-Lighting", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 800, 600, 0, 0, hInstance, 0);
+    HWND hWnd = CreateWindowW(wc.lpszClassName, L"PBR03-IBL-diffuse", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 800, 600, 0, 0, hInstance, 0);
 
     ShowWindow(hWnd, nShowCmd);
     UpdateWindow(hWnd);
@@ -525,7 +525,7 @@ void RenerEquirectangularMapToCube()
     //create texture object
     if(equirectangularMap_texture == 0)
     {
-        equirectangularMap_texture = CreateHDRTexture("Brooklyn_Bridge_Planks/Brooklyn_Bridge_Planks_2k.hdr");
+        equirectangularMap_texture = CreateHDRTexture("Brooklyn_Bridge_Planks_2k.hdr");
     }
 
     //setup
