@@ -1,0 +1,1 @@
+﻿http://flipcode.com/archives/HDR_Image_Reader.shtml
