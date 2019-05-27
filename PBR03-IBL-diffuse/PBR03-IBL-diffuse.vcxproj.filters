@@ -10,8 +10,7 @@
     <ClInclude Include="VertexShader.hpp" />
     <ClInclude Include="..\HDRLoader\hdrloader.h" />
     <ClInclude Include="Cube.h" />
-    <ClInclude Include="CubeFragmentShader.h" />
-    <ClInclude Include="CubeVertexShader.h" />
     <ClInclude Include="SkyBoxShader.h" />
+    <ClInclude Include="CubeShader.h" />
   </ItemGroup>
 </Project>

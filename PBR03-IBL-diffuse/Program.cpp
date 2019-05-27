@@ -499,8 +499,7 @@ void DestroyOpenGL(HWND hWnd)
     ReleaseDC(hWnd, hDC);
 }
 
-#include "CubeVertexShader.h"
-#include "CubeFragmentShader.h"
+#include "CubeShader.h"
 #include "Cube.h"
 GLuint cubeProgram = 0,
        cube_vertexArray = 0,
