@@ -358,6 +358,26 @@ GLuint CreateHDRTexture(const char* imagePath)
     return texture;
 }
 
+GLuint CreateCubeMap()
+{
+    GLuint cubemap;
+    glGenTextures(1, &cubemap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
+    for (int i = 0; i < 6; ++i)
+    {
+        // note that we store each face with 16 bit floating point values
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F,
+                     512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
+        // texture data will be paint to each face of this cubemap later
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    return cubemap;
+}
+
 #include "Sphere.hpp"
 #include "VertexShader.hpp"
 #include "FragmentShader.hpp"
@@ -458,6 +478,7 @@ BOOL InitOpenGL(HWND hWnd)
     glFrontFace(GL_CCW);
     glCullFace(GL_BACK);
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
 
     _CheckGLError_
 
@@ -490,7 +511,7 @@ GLuint cubeProgram = 0,
 GLint cube_uniformProjection = -1,
       cube_uniformView = -1,
       cube_uniformEquirectangularMap = -1;
-void RenerEquirectangularMapToCube()
+void RenderEquirectangularMapToCube()
 {
     //create program object
     if(cubeProgram == 0)
@@ -547,6 +568,141 @@ void RenerEquirectangularMapToCube()
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+#include "SkyBoxShader.h"
+GLuint environmentFrameBuffer = 0, environmentRenderBuffer = 0, environmentCubeMap = 0;
+GLsizei environmentRenderBufferWidth = 512, environmentRenderBufferHeight = 512;
+GLuint skyBoxProgram = 0;
+GLint skyBoxUniformProjection = -1,
+      skyBoxUniformView = -1,
+      skyBoxUniformEnvironmentMap = -1;
+void RenderEnvironment()
+{
+    //create program object
+    if(cubeProgram == 0)
+    {
+        cubeProgram = CreateShaderProgram(cubeVertexShader, cubeFragmentShader);
+        cube_uniformProjection = glGetUniformLocation(cubeProgram, "projection");
+        cube_uniformView = glGetUniformLocation(cubeProgram, "view");
+        cube_uniformEquirectangularMap = glGetUniformLocation(cubeProgram, "equirectangularMap");
+    }
+
+    //create vertex array object
+    if(cube_vertexArray == 0)
+    {
+        glGenVertexArrays(1, &cube_vertexArray);
+
+        glGenBuffers(1, &cube_vertexBuf);
+        assert(cube_vertexBuf != 0);
+        glBindBuffer(GL_ARRAY_BUFFER, cube_vertexBuf);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), (GLvoid*)cube_vertices, GL_STATIC_DRAW);
+
+        glBindVertexArray(cube_vertexArray);
+        //set up attribute for positon, texcoord and normal
+        glVertexAttribPointer(attributePos,      3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
+        glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glVertexAttribPointer(attributeNormal,   3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+        //enable attribute arrays
+        glEnableVertexAttribArray(attributePos);
+        glEnableVertexAttribArray(attributeTexCoord);
+        glEnableVertexAttribArray(attributeNormal);
+    }
+
+    //create texture object
+    if(equirectangularMap_texture == 0)
+    {
+        equirectangularMap_texture = CreateHDRTexture("Brooklyn_Bridge_Planks_2k.hdr");
+    }
+
+    //create cubemap texture
+    if(environmentCubeMap == 0)
+    {
+        environmentCubeMap = CreateCubeMap();
+    }
+
+    //create framebuffer object
+    if(environmentFrameBuffer == 0)
+    {
+        glGenFramebuffers(1, &environmentFrameBuffer);
+        glGenRenderbuffers(1, &environmentRenderBuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
+
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, environmentRenderBufferWidth, environmentRenderBufferHeight);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, environmentRenderBuffer);
+    }
+
+    if(skyBoxProgram == 0)
+    {
+        skyBoxProgram = CreateShaderProgram(SkyBoxVertexShader, SkyBoxFragmentShader);
+        skyBoxUniformProjection = glGetUniformLocation(skyBoxProgram, "projection");
+        skyBoxUniformView = glGetUniformLocation(skyBoxProgram, "view");
+        skyBoxUniformEnvironmentMap = glGetUniformLocation(skyBoxProgram, "environmentMap");
+    }
+
+    //render environment to environmentCubeMap via framebuffer
+    {
+        //setup
+        glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+        glm::mat4 views[6] =
+        {
+           glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+           glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+           glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+           glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+           glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+           glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+        };
+        glViewport(0,0,environmentRenderBufferWidth, environmentRenderBufferHeight);
+        glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
+        glUseProgram(cubeProgram);
+        glBindVertexArray(cube_vertexArray);
+        glUniformMatrix4fv(cube_uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, equirectangularMap_texture);
+        glUniform1i(cube_uniformEquirectangularMap, 0);
+
+        //draw
+        for (int i = 0; i < 6; i++)
+        {
+            glUniformMatrix4fv(cube_uniformView, 1, GL_FALSE, glm::value_ptr(views[i]));
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, environmentCubeMap, 0);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+
+        //restore
+        glUseProgram(0);
+        glBindVertexArray(0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    //render environmentCubeMap as the background skybox to default framebuffer
+    {
+        //setup
+        glViewport(0,0, clientWidth, clientHeight);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glUseProgram(skyBoxProgram);
+        glBindVertexArray(cube_vertexArray);
+        glUniformMatrix4fv(skyBoxUniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(skyBoxUniformView, 1, GL_FALSE, glm::value_ptr(view));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
+        glUniform1i(skyBoxUniformEnvironmentMap, 0);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        //restore
+        glUseProgram(0);
+        glBindVertexArray(0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+}
+
 int nrRows    = 7;
 int nrColumns = 7;
 float spacing = 1.2;
@@ -601,7 +757,9 @@ void Render()
     }
     _CheckGLError_
 
-    RenerEquirectangularMapToCube();
+    //RenderEquirectangularMapToCube();
+
+    RenderEnvironment();
 
     _CheckGLError_
 

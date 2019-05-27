@@ -100,6 +100,7 @@
     <ClInclude Include="FragmentShader.hpp" />
     <ClInclude Include="CubeFragmentShader.h" />
     <ClInclude Include="CubeVertexShader.h" />
+    <ClInclude Include="SkyBoxShader.h" />
     <ClInclude Include="Sphere.hpp" />
     <ClInclude Include="VertexShader.hpp" />
   </ItemGroup>

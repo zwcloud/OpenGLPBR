@@ -12,5 +12,6 @@
     <ClInclude Include="Cube.h" />
     <ClInclude Include="CubeFragmentShader.h" />
     <ClInclude Include="CubeVertexShader.h" />
+    <ClInclude Include="SkyBoxShader.h" />
   </ItemGroup>
 </Project>

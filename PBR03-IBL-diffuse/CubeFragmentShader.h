@@ -21,7 +21,8 @@ vec2 SampleSphericalMap(vec3 v)
 void main()
 {
     vec2 uv = SampleSphericalMap(normalize(localPos)); // make sure to normalize localPos
-    vec3 color = texture(equirectangularMap, vec2(uv.s, 1.0f-uv.t)).rgb;
+    uv.t = 1.0 - uv.t; //HDRLoader decoded pixels is upside-down for OpenGL
+    vec3 color = texture(equirectangularMap, uv).rgb;
 
     FragColor = vec4(color, 1.0);
 }
