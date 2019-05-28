@@ -134,6 +134,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             PostQuitMessage(0);
             break;
         }
+        else
+        {
+            return 0;
+        }
     case WM_SIZE:
         clientWidth = LOWORD(lParam);
         clientHeight = HIWORD(lParam);
