@@ -25,6 +25,9 @@
     <ClInclude Include="..\HDRLoader\hdrloader.h">
       <Filter>HDRLoader</Filter>
     </ClInclude>
+    <ClInclude Include="IrradianceShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shader">

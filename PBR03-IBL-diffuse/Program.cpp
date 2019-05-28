@@ -263,6 +263,7 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* fShaderStr)
             OutputDebugString(L"Error compiling vertex shader: \n");
             OutputDebugStringA(infoLog);
             OutputDebugStringA("\n");
+            OutputDebugStringA(vShaderStr);
             free(infoLog);
         }
         glDeleteShader(vShader);
@@ -290,6 +291,7 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* fShaderStr)
             OutputDebugString(L"Error compiling fragment shader: \n");
             OutputDebugStringA(infoLog);
             OutputDebugStringA("\n");
+            OutputDebugStringA(fShaderStr);
             free(infoLog);
         }
         glDeleteShader(pShader);
@@ -358,7 +360,7 @@ GLuint CreateHDRTexture(const char* imagePath)
     return texture;
 }
 
-GLuint CreateCubeMap()
+GLuint CreateCubeMap(GLsizei width, GLsizei height)
 {
     GLuint cubemap;
     glGenTextures(1, &cubemap);
@@ -367,7 +369,7 @@ GLuint CreateCubeMap()
     {
         // note that we store each face with 16 bit floating point values
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F,
-                     512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
+            width, height, 0, GL_RGB, GL_FLOAT, nullptr);
         // texture data will be paint to each face of this cubemap later
     }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -617,7 +619,7 @@ void RenderEquirectangularToCubeMap()
     //create cubemap texture
     if(environmentCubeMap == 0)
     {
-        environmentCubeMap = CreateCubeMap();
+        environmentCubeMap = CreateCubeMap(environmentRenderBufferWidth, environmentRenderBufferHeight);
     }
 
     //create framebuffer object
@@ -724,6 +726,146 @@ void RenderEnvironment()
     glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
     glUniform1i(skyBoxUniformEnvironmentMap, 0);
 
+    //draw
+    glDisable(GL_CULL_FACE);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glEnable(GL_CULL_FACE);
+
+    //restore
+    glUseProgram(0);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+#include "IrradianceShader.h"
+GLuint irradianceCubeMap = 0, irradianceProgram = 0;
+GLint irradianceUniformEnvironmentMap = -1,
+      irradianceUniformProjection = -1,
+      irradianceUniformView = -1;
+void RenderEnvironmentCubeMapToIrradianceCubeMap()
+{
+    //check cubemap texture
+    if (environmentCubeMap == 0)
+    {
+        RenderEquirectangularToCubeMap();
+    }
+
+    //create irradiance cubemap
+    if (irradianceCubeMap == 0)
+    {
+        irradianceCubeMap = CreateCubeMap(32, 32);
+    }
+
+    //create irradiance program object
+    if(irradianceProgram == 0)
+    {
+        irradianceProgram = CreateShaderProgram(cubeVertexShader, irradianceFragmentShader);
+        irradianceUniformEnvironmentMap = glGetUniformLocation(irradianceProgram, "environmentMap");
+        irradianceUniformProjection = glGetUniformLocation(irradianceProgram, "projection");
+        irradianceUniformView = glGetUniformLocation(irradianceProgram, "view");
+    }
+
+    //set up
+    glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 32, 32);
+
+    glViewport(0, 0, 32, 32);
+    glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
+    glUseProgram(irradianceProgram);
+    glBindVertexArray(cube_vertexArray);
+    glBindBuffer(GL_ARRAY_BUFFER, cube_vertexBuf);
+    glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+    glUniformMatrix4fv(irradianceUniformProjection, 1, false, glm::value_ptr(projection));
+    glUniform1i(irradianceUniformEnvironmentMap, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
+
+    //draw
+    glm::mat4 views[6] =
+    {
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+    };
+    glDisable(GL_CULL_FACE);
+    for (unsigned int i = 0; i < 6; ++i)
+    {
+        glUniformMatrix4fv(irradianceUniformView, 1, false, glm::value_ptr(views[i]));
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceCubeMap, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
+    glEnable(GL_CULL_FACE);
+
+    //restore
+    glUseProgram(0);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+//render irradianceCubeMap as the background skybox to default framebuffer
+void RenderIrradianceEnvironment()
+{
+    //check cubemap texture
+    if (irradianceCubeMap == 0)
+    {
+        RenderEnvironmentCubeMapToIrradianceCubeMap();
+    }
+
+    //create vertex array object
+    if (cube_vertexArray == 0)
+    {
+        glGenVertexArrays(1, &cube_vertexArray);
+
+        glGenBuffers(1, &cube_vertexBuf);
+        assert(cube_vertexBuf != 0);
+        glBindBuffer(GL_ARRAY_BUFFER, cube_vertexBuf);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), (GLvoid*)cube_vertices, GL_STATIC_DRAW);
+
+        glBindVertexArray(cube_vertexArray);
+        //set up attribute for positon, texcoord and normal
+        glVertexAttribPointer(attributePos, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
+        glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glVertexAttribPointer(attributeNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+        //enable attribute arrays
+        glEnableVertexAttribArray(attributePos);
+        glEnableVertexAttribArray(attributeTexCoord);
+        glEnableVertexAttribArray(attributeNormal);
+    }
+
+    //create skybox program object
+    if (skyBoxProgram == 0)
+    {
+        skyBoxProgram = CreateShaderProgram(SkyBoxVertexShader, SkyBoxFragmentShader);
+        skyBoxUniformProjection = glGetUniformLocation(skyBoxProgram, "projection");
+        skyBoxUniformView = glGetUniformLocation(skyBoxProgram, "view");
+        skyBoxUniformEnvironmentMap = glGetUniformLocation(skyBoxProgram, "environmentMap");
+    }
+
+    //setup
+    glViewport(0, 0, clientWidth, clientHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glUseProgram(skyBoxProgram);
+    glBindVertexArray(cube_vertexArray);
+    glBindBuffer(GL_ARRAY_BUFFER, cube_vertexBuf);
+    glUniformMatrix4fv(skyBoxUniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(skyBoxUniformView, 1, GL_FALSE, glm::value_ptr(view));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceCubeMap);
+    glUniform1i(skyBoxUniformEnvironmentMap, 0);
+
+    //draw
     glDisable(GL_CULL_FACE);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glEnable(GL_CULL_FACE);
@@ -798,7 +940,9 @@ void Render()
 
     //RenderEquirectangularMapToCube();
 
-    RenderEnvironment();
+    //RenderEnvironment();
+
+    RenderIrradianceEnvironment();
 
     _CheckGLError_
 

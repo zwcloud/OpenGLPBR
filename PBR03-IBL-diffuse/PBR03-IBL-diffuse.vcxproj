@@ -96,6 +96,7 @@
   <ItemGroup>
     <ClInclude Include="..\HDRLoader\hdrloader.h" />
     <ClInclude Include="Cube.h" />
+    <ClInclude Include="IrradianceShader.h" />
     <ClInclude Include="PBRShader.hpp" />
     <ClInclude Include="CubeShader.h" />
     <ClInclude Include="SkyBoxShader.h" />
