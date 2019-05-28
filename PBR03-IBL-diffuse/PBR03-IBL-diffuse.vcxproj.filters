@@ -6,11 +6,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sphere.hpp" />
-    <ClInclude Include="FragmentShader.hpp" />
-    <ClInclude Include="VertexShader.hpp" />
     <ClInclude Include="..\HDRLoader\hdrloader.h" />
     <ClInclude Include="Cube.h" />
     <ClInclude Include="SkyBoxShader.h" />
     <ClInclude Include="CubeShader.h" />
+    <ClInclude Include="PBRShader.hpp" />
   </ItemGroup>
 </Project>

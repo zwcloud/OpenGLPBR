@@ -96,11 +96,10 @@
   <ItemGroup>
     <ClInclude Include="..\HDRLoader\hdrloader.h" />
     <ClInclude Include="Cube.h" />
-    <ClInclude Include="FragmentShader.hpp" />
+    <ClInclude Include="PBRShader.hpp" />
     <ClInclude Include="CubeShader.h" />
     <ClInclude Include="SkyBoxShader.h" />
     <ClInclude Include="Sphere.hpp" />
-    <ClInclude Include="VertexShader.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

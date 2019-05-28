@@ -378,9 +378,8 @@ GLuint CreateCubeMap()
     return cubemap;
 }
 
+#include "PBRShader.hpp"
 #include "Sphere.hpp"
-#include "VertexShader.hpp"
-#include "FragmentShader.hpp"
 
 glm::vec3 lightPositions[] = {
     glm::vec3(-10.0f,  10.0f, 10.0f),
