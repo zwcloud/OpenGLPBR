@@ -2,14 +2,39 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="Program.cpp" />
-    <ClCompile Include="..\HDRLoader\hdrloader.cpp" />
+    <ClCompile Include="..\HDRLoader\hdrloader.cpp">
+      <Filter>HDRLoader</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Sphere.hpp" />
-    <ClInclude Include="..\HDRLoader\hdrloader.h" />
-    <ClInclude Include="Cube.h" />
-    <ClInclude Include="SkyBoxShader.h" />
-    <ClInclude Include="CubeShader.h" />
-    <ClInclude Include="PBRShader.hpp" />
+    <ClInclude Include="CubeShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="SkyBoxShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="PBRShader.hpp">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="Cube.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Sphere.hpp">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HDRLoader\hdrloader.h">
+      <Filter>HDRLoader</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{5f8b6f69-bd1c-4184-94bf-5f24b4f513cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model">
+      <UniqueIdentifier>{faacd8ce-1db5-4ac9-9960-1a7555696969}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="HDRLoader">
+      <UniqueIdentifier>{0febb46e-452c-4c71-b669-62c8d11c7c3b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>
