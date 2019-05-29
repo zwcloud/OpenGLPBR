@@ -30,13 +30,14 @@ GLuint program = 0;
 GLint attributePos = 0;
 GLint attributeTexCoord = 0;
 GLint attributeNormal = 0;
-GLint uniformModel = 0;
-GLint uniformView = 0;
-GLint uniformProjection = 0;
-GLint uniformMetallic = 0;
-GLint uniformRoughness = 0;
-GLint uniformLightPositions = 0;
-GLint uniformLightColors = 0;
+GLint uniformModel = -1;
+GLint uniformView = -1;
+GLint uniformProjection = -1;
+GLint uniformMetallic = -1;
+GLint uniformRoughness = -1;
+GLint uniformLightPositions = -1;
+GLint uniformLightColors = -1;
+GLint uniformIrradianceMap = -1;
 GLenum err = GL_NO_ERROR;
 
 //misc
@@ -431,6 +432,9 @@ BOOL InitOpenGL(HWND hWnd)
 
     GLint uniformCamPos = glGetUniformLocation(program, "camPos");
 
+    // environment map
+    uniformIrradianceMap = glGetUniformLocation(program, "irradianceMap");
+
     _CheckGLError_
 
     glUseProgram(program);
@@ -821,12 +825,6 @@ void RenderEnvironmentCubeMapToIrradianceCubeMap()
 //render irradianceCubeMap as the background skybox to default framebuffer
 void RenderIrradianceEnvironment()
 {
-    //check cubemap texture
-    if (irradianceCubeMap == 0)
-    {
-        RenderEnvironmentCubeMapToIrradianceCubeMap();
-    }
-
     //create vertex array object
     if (cube_vertexArray == 0)
     {
@@ -893,6 +891,11 @@ void Render()
     auto time_span = now - startTime;
     auto passedTime = time_span.count()/1000;
 
+    if (irradianceCubeMap == 0)
+    {
+        RenderEnvironmentCubeMapToIrradianceCubeMap();
+    }
+
     glViewport(0,0, clientWidth, clientHeight);
     // clear
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -902,6 +905,9 @@ void Render()
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuf);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuf);
     glUseProgram(program);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceCubeMap);
+    glUniform1i(uniformIrradianceMap, 0);
 
     // render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
     // move light positions
@@ -944,9 +950,9 @@ void Render()
 
     //RenderEquirectangularMapToCube();
 
-    //RenderEnvironment();
+    RenderEnvironment();
 
-    RenderIrradianceEnvironment();
+    //RenderIrradianceEnvironment();
 
     _CheckGLError_
 
