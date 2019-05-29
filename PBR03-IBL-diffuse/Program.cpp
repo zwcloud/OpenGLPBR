@@ -12,6 +12,7 @@
 #include "../glm/gtc/type_ptr.hpp" // value_ptr
 //for hdr image
 #include "../HDRLoader/hdrloader.h"
+#include <stdexcept>
 
 #pragma comment (lib, "../../GLEW/glew32.lib")
 #pragma comment (lib, "opengl32.lib")
@@ -40,6 +41,9 @@ GLint uniformLightColors = -1;
 GLint uniformIrradianceMap = -1;
 GLenum err = GL_NO_ERROR;
 
+const char* hdrImagePath[] = { "Brooklyn_Bridge_Planks_2k.hdr", "Bryant_Park_2k.hdr","Factory_Catwalk_2k.hdr" };
+int currentHDRImageIndex = 0;
+
 //misc
 int clientWidth;
 int clientHeight;
@@ -48,6 +52,7 @@ BOOL CreateOpenGLRenderContext(HWND hWnd);
 BOOL InitGLEW();
 BOOL InitOpenGL(HWND hWnd);
 void DestroyOpenGL(HWND hWnd);
+void SwitchHDRImage();
 void Render();
 void fnCheckGLError(const char* szFile, int nLine);
 #define _CheckGLError_ fnCheckGLError(__FILE__,__LINE__);
@@ -127,6 +132,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DestroyOpenGL(hWnd);
             PostQuitMessage(0);
             break;
+        }
+        else if(wParam == VK_RETURN)
+        {
+            SwitchHDRImage();
+            return 0;
         }
         else
         {
@@ -337,6 +347,7 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* fShaderStr)
 GLuint CreateHDRTexture(const char* imagePath)
 {
     //load hdr image file
+
     HDRLoaderResult result = {0};
     if (!HDRLoader::load(imagePath, result))
     {
@@ -345,6 +356,7 @@ GLuint CreateHDRTexture(const char* imagePath)
         OutputDebugStringA(buf);
         return -1;
     }
+
     float* data = result.cols;
     unsigned int width = result.width;
     unsigned int height = result.height;
@@ -448,7 +460,7 @@ BOOL InitOpenGL(HWND hWnd)
     glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(view));
 
     //static albedo and AO
-    glUniform3f(uniformAlbedo, 0.5f, 0.0f, 0.0f);
+    glUniform3f(uniformAlbedo, 0.2f, 0.2f, 0.2f);
     glUniform1f(uniformAo, 1.0f);
 
     //static camera position
@@ -554,7 +566,8 @@ void RenderEquirectangularMapToCube()
     //create texture object
     if(equirectangularMap_texture == 0)
     {
-        equirectangularMap_texture = CreateHDRTexture("Brooklyn_Bridge_Planks_2k.hdr");
+        const char* imagePath = hdrImagePath[currentHDRImageIndex];
+        equirectangularMap_texture = CreateHDRTexture(imagePath);
     }
 
     //setup
@@ -621,7 +634,8 @@ void RenderEquirectangularToCubeMap()
     //create texture object
     if(equirectangularMap_texture == 0)
     {
-        equirectangularMap_texture = CreateHDRTexture("Brooklyn_Bridge_Planks_2k.hdr");
+        const char* imagePath = hdrImagePath[currentHDRImageIndex];
+        equirectangularMap_texture = CreateHDRTexture(imagePath);
     }
 
     //create cubemap texture
@@ -635,12 +649,12 @@ void RenderEquirectangularToCubeMap()
     {
         glGenFramebuffers(1, &environmentFrameBuffer);
         glGenRenderbuffers(1, &environmentRenderBuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
-        glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
-
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, environmentRenderBufferWidth, environmentRenderBufferHeight);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, environmentRenderBuffer);
     }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, environmentRenderBufferWidth, environmentRenderBufferHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, environmentRenderBuffer);
 
     //setup
     glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
@@ -686,10 +700,9 @@ void RenderEquirectangularToCubeMap()
 //render environmentCubeMap as the background skybox to default framebuffer
 void RenderEnvironment()
 {
-    //check cubemap texture
-    if(environmentCubeMap == 0)
+    if(environmentCubeMap <= 0)
     {
-        RenderEquirectangularToCubeMap();
+        throw std::runtime_error("environmentCubeMap not ready");
     }
 
     //create vertex array object
@@ -756,9 +769,9 @@ GLint irradianceUniformEnvironmentMap = -1,
 void RenderEnvironmentCubeMapToIrradianceCubeMap()
 {
     //check cubemap texture
-    if (environmentCubeMap == 0)
+    if (environmentCubeMap <= 0)
     {
-        RenderEquirectangularToCubeMap();
+        throw std::runtime_error("environmentCubeMap not ready");
     }
 
     //create irradiance cubemap
@@ -825,6 +838,11 @@ void RenderEnvironmentCubeMapToIrradianceCubeMap()
 //render irradianceCubeMap as the background skybox to default framebuffer
 void RenderIrradianceEnvironment()
 {
+    if (irradianceCubeMap <= 0)
+    {
+        throw std::runtime_error("environmentCubeMap not ready");
+    }
+
     //create vertex array object
     if (cube_vertexArray == 0)
     {
@@ -881,6 +899,28 @@ void RenderIrradianceEnvironment()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void SwitchHDRImage()
+{
+    currentHDRImageIndex = (currentHDRImageIndex + 1) % 3;
+
+    //reset
+    if(equirectangularMap_texture > 0)
+    {
+        glDeleteTextures(1, &equirectangularMap_texture);
+        equirectangularMap_texture = 0;
+    }
+    if (environmentCubeMap > 0)
+    {
+        glDeleteTextures(1, &environmentCubeMap);
+        environmentCubeMap = 0;
+    }
+    if (irradianceCubeMap > 0)
+    {
+        glDeleteTextures(1, &irradianceCubeMap);
+        irradianceCubeMap = 0;
+    }
+}
+
 int nrRows    = 7;
 int nrColumns = 7;
 float spacing = 1.2;
@@ -891,7 +931,12 @@ void Render()
     auto time_span = now - startTime;
     auto passedTime = time_span.count()/1000;
 
-    if (irradianceCubeMap == 0)
+    if (environmentCubeMap <= 0)
+    {
+        RenderEquirectangularToCubeMap();
+    }
+
+    if (irradianceCubeMap <= 0)
     {
         RenderEnvironmentCubeMapToIrradianceCubeMap();
     }
