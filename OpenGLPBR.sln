@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PBR02-Lighting-textured", "
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PBR03-IBL-diffuse", "PBR03-IBL-diffuse\PBR03-IBL-diffuse.vcxproj", "{42B9D680-5592-4D88-8A91-249A88CEBAB6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PBR04-IBL-specular", "PBR04-IBL-specular\PBR04-IBL-specular.vcxproj", "{02768696-9E3A-4E38-A716-47600789EFF0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -27,6 +29,10 @@ Global
 		{42B9D680-5592-4D88-8A91-249A88CEBAB6}.Debug|x86.Build.0 = Debug|Win32
 		{42B9D680-5592-4D88-8A91-249A88CEBAB6}.Release|x86.ActiveCfg = Release|Win32
 		{42B9D680-5592-4D88-8A91-249A88CEBAB6}.Release|x86.Build.0 = Release|Win32
+		{02768696-9E3A-4E38-A716-47600789EFF0}.Debug|x86.ActiveCfg = Debug|Win32
+		{02768696-9E3A-4E38-A716-47600789EFF0}.Debug|x86.Build.0 = Debug|Win32
+		{02768696-9E3A-4E38-A716-47600789EFF0}.Release|x86.ActiveCfg = Release|Win32
+		{02768696-9E3A-4E38-A716-47600789EFF0}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
