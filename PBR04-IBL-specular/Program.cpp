@@ -418,6 +418,17 @@ glm::mat4 projection;
 glm::vec3 camPos;
 glm::mat4 view;
 
+glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+glm::mat4 captureViews[6] =
+{
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+};
+
 BOOL InitOpenGL(HWND hWnd)
 {
     //create program
@@ -494,7 +505,7 @@ BOOL InitOpenGL(HWND hWnd)
 
     //other settings
     glViewport(0, 0, GLsizei(clientWidth), GLsizei(clientHeight));
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClearColor(1, 1, 1, 1);
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
     glCullFace(GL_BACK);
@@ -670,20 +681,10 @@ void RenderEquirectangularToCubeMap()
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, environmentRenderBuffer);
 
     //setup
-    glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    glm::mat4 views[6] =
-    {
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-    };
     glViewport(0,0,environmentRenderBufferWidth, environmentRenderBufferHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
     glUseProgram(cubeProgram);
-    glUniformMatrix4fv(cube_uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(cube_uniformProjection, 1, GL_FALSE, glm::value_ptr(captureProjection));
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, equirectangularMap_texture);
     glUniform1i(cube_uniformEquirectangularMap, 0);
@@ -692,7 +693,7 @@ void RenderEquirectangularToCubeMap()
     //draw
     for (int i = 0; i < 6; i++)
     {
-        glUniformMatrix4fv(cube_uniformView, 1, GL_FALSE, glm::value_ptr(views[i]));
+        glUniformMatrix4fv(cube_uniformView, 1, GL_FALSE, glm::value_ptr(captureViews[i]));
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
             environmentCubeMap, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -810,39 +811,25 @@ void RenderEnvironmentCubeMapToIrradianceCubeMap()
     glViewport(0, 0, 32, 32);
     glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
     glUseProgram(irradianceProgram);
-    glBindVertexArray(cube_vertexArray);
-    glBindBuffer(GL_ARRAY_BUFFER, cube_vertexBuf);
-    glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    glUniformMatrix4fv(irradianceUniformProjection, 1, false, glm::value_ptr(projection));
+    glUniformMatrix4fv(irradianceUniformProjection, 1, false, glm::value_ptr(captureProjection));
     glUniform1i(irradianceUniformEnvironmentMap, 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
 
     //draw
-    glm::mat4 views[6] =
-    {
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-    };
     glDisable(GL_CULL_FACE);
     for (unsigned int i = 0; i < 6; ++i)
     {
-        glUniformMatrix4fv(irradianceUniformView, 1, false, glm::value_ptr(views[i]));
+        glUniformMatrix4fv(irradianceUniformView, 1, false, glm::value_ptr(captureViews[i]));
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceCubeMap, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        RenderCube();
     }
     glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -955,7 +942,7 @@ void RenderPrefilteredEnvironmentMapToCubeMap()
     {
         prefilteredEnvironmentCubeMap = CreateCubeMap(prefilteredEnvironmentCubeMapSize, prefilteredEnvironmentCubeMapSize);
         glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredEnvironmentCubeMap);
-        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 5);
         glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
     }
 
@@ -986,20 +973,9 @@ void RenderPrefilteredEnvironmentMapToCubeMap()
         preFilteredEnvironmentUniformRoughness = glGetUniformLocation(preFilteredEnvironmentProgram, "roughness");
     }
 
-    glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    glm::mat4 views[6] =
-    {
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-    };
-
     glUseProgram(preFilteredEnvironmentProgram);
     glUniform1i(preFilteredEnvironmentUniformEnvironmentMap, 0);
-    glUniformMatrix4fv(preFilteredEnvironmentUniformProjection, 1, false, glm::value_ptr(projection));
+    glUniformMatrix4fv(preFilteredEnvironmentUniformProjection, 1, false, glm::value_ptr(captureProjection));
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
 
@@ -1016,7 +992,7 @@ void RenderPrefilteredEnvironmentMapToCubeMap()
         glUniform1f(preFilteredEnvironmentUniformRoughness, roughtness);
         for (uint32_t i = 0; i < 6; i++)
         {
-            glUniformMatrix4fv(preFilteredEnvironmentUniformView, 1, GL_FALSE, glm::value_ptr(views[i]));
+            glUniformMatrix4fv(preFilteredEnvironmentUniformView, 1, GL_FALSE, glm::value_ptr(captureViews[i]));
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                 prefilteredEnvironmentCubeMap, mipLevel);
             if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -1094,7 +1070,7 @@ void RenderPrefilteredEnvironmentSkyBox()
     //create skybox program object
     if (skyBoxLODProgram == 0)
     {
-        skyBoxLODProgram = CreateShaderProgram(SkyBoxVertexShader, SkyBoxFragmentShader);
+        skyBoxLODProgram = CreateShaderProgram(SkyBoxLODVertexShader, SkyBoxLODFragmentShader);
         skyBoxLODUniformProjection = glGetUniformLocation(skyBoxLODProgram, "projection");
         skyBoxLODUniformView = glGetUniformLocation(skyBoxLODProgram, "view");
         skyBoxLODUniformEnvironmentMap = glGetUniformLocation(skyBoxLODProgram, "environmentMap");
@@ -1201,9 +1177,9 @@ void Render()
         RenderPrefilteredEnvironmentMapToCubeMap();
     }
 
-    RenderPrefilteredMapAsACube();
+    //RenderPrefilteredMapAsACube();
 
-    //RenderPrefilteredEnvironmentSkyBox();
+    RenderPrefilteredEnvironmentSkyBox();
 
     _CheckGLError_
 
