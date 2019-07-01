@@ -18,11 +18,12 @@
 #pragma comment (lib, "opengl32.lib")
 
 //Global
-HDC hDC;
-HGLRC openGLRC;
+HDC hDC = nullptr;
+HGLRC openGLRC = nullptr;
 RECT clientRect;
 
 //OpenGL
+GLuint vao;
 GLuint vertexBuf = 0;
 GLuint indexBuf = 0;
 GLuint vShader = 0;
@@ -41,6 +42,9 @@ GLint uniformLightColors = -1;
 GLint uniformIrradianceMap = -1;
 GLenum err = GL_NO_ERROR;
 
+GLuint environmentFrameBuffer = 0, environmentRenderBuffer = 0;
+GLsizei environmentRenderBufferWidth = 512, environmentRenderBufferHeight = 512;
+
 const char* hdrImagePath[] = { "Brooklyn_Bridge_Planks_2k.hdr", "Bryant_Park_2k.hdr","Factory_Catwalk_2k.hdr" };
 int currentHDRImageIndex = 2;
 
@@ -48,7 +52,6 @@ int currentHDRImageIndex = 2;
 int clientWidth;
 int clientHeight;
 std::chrono::high_resolution_clock::time_point startTime;
-BOOL CreateOpenGLRenderContext(HWND hWnd);
 BOOL InitGLEW();
 BOOL InitOpenGL(HWND hWnd);
 void DestroyOpenGL(HWND hWnd);
@@ -58,65 +61,6 @@ void fnCheckGLError(const char* szFile, int nLine);
 #define _CheckGLError_ fnCheckGLError(__FILE__,__LINE__);
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-
-int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in_opt LPSTR lpCmdLine, __in int nShowCmd)
-{
-    BOOL bResult = FALSE;
-
-    MSG msg = { 0 };
-    WNDCLASS wc = { 0 };
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInstance;
-    wc.hbrBackground = (HBRUSH)(COLOR_BACKGROUND);
-    wc.lpszClassName = L"PBR04-IBL-specularWindowClass";
-    wc.style = CS_OWNDC;
-    if (!RegisterClass(&wc))
-        return 1;
-    HWND hWnd = CreateWindowW(wc.lpszClassName, L"PBR04-IBL-specular", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 800, 600, 0, 0, hInstance, 0);
-
-    ShowWindow(hWnd, nShowCmd);
-    UpdateWindow(hWnd);
-
-    bResult = CreateOpenGLRenderContext(hWnd);
-    if (bResult == FALSE)
-    {
-        OutputDebugStringA("CreateOpenGLRenderContext failed!\n");
-        return 1;
-    }
-    InitGLEW();
-
-    // get client size
-    if (!GetClientRect(hWnd, &clientRect))
-    {
-        OutputDebugString(L"GetClientRect Failed!\n");
-        return FALSE;
-    }
-    clientWidth = clientRect.right - clientRect.left;
-    clientHeight = clientRect.bottom - clientRect.top;
-
-    //set up OpenGL
-    InitOpenGL(hWnd);
-
-    startTime = std::chrono::high_resolution_clock::now();
-    while (true)
-    {
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != 0)
-        {
-            if (msg.message == WM_QUIT)
-            {
-                break;
-            }
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-        else
-        {
-            Render();
-        }
-    }
-
-    return 0;
-}
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -133,7 +77,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             PostQuitMessage(0);
             break;
         }
-        else if(wParam == VK_RETURN)
+        else if (wParam == VK_RETURN)
         {
             SwitchHDRImage();
             return 0;
@@ -143,9 +87,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             return 0;
         }
     case WM_SIZE:
-        clientWidth = LOWORD(lParam);
-        clientHeight = HIWORD(lParam);
-        glViewport(0, 0, clientWidth, clientHeight);
+        if(openGLRC != nullptr)
+        {
+            clientWidth = LOWORD(lParam);
+            clientHeight = HIWORD(lParam);
+            glViewport(0, 0, clientWidth, clientHeight);
+        }
         break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
@@ -164,73 +111,6 @@ BOOL InitGLEW()
         return FALSE;
     }
     sprintf(buffer, "Status: Using GLEW %s\n", (char*)glewGetString(GLEW_VERSION));
-    OutputDebugStringA(buffer);
-    return TRUE;
-}
-
-BOOL CreateOpenGLRenderContext(HWND hWnd)
-{
-    BOOL bResult;
-    char buffer[128];
-    PIXELFORMATDESCRIPTOR pfd = {
-        sizeof(PIXELFORMATDESCRIPTOR),  //  size of this pfd
-        1,                     // version number
-        PFD_DRAW_TO_WINDOW |   // support window
-        PFD_SUPPORT_OPENGL |   // support OpenGL
-        PFD_DOUBLEBUFFER,      // double buffered
-        PFD_TYPE_RGBA,         // RGBA type
-        32,                    // 32-bit color depth
-        0, 0, 0, 0, 0, 0,      // color bits ignored
-        0,                     // no alpha buffer
-        0,                     // shift bit ignored
-        0,                     // no accumulation buffer
-        0, 0, 0, 0,            // accum bits ignored
-        24,                    // 24-bit z-buffer
-        8,                     // 8-bit stencil buffer
-        0,                     // no auxiliary buffer
-        PFD_MAIN_PLANE,        // main layer
-        0,                     // reserved
-        0, 0, 0                // layer masks ignored
-    };
-
-    hDC = GetDC(hWnd);
-    if (hDC == NULL)
-    {
-        OutputDebugStringA("Error: GetDC Failed!\n");
-        return FALSE;
-    }
-
-    int pixelFormatIndex;
-    pixelFormatIndex = ChoosePixelFormat(hDC, &pfd);
-    if (pixelFormatIndex == 0)
-    {
-        sprintf(buffer, "Error %d: ChoosePixelFormat Failed!\n", GetLastError());
-        OutputDebugStringA(buffer);
-        return FALSE;
-    }
-    bResult = SetPixelFormat(hDC, pixelFormatIndex, &pfd);
-    if (bResult == FALSE)
-    {
-        OutputDebugStringA("SetPixelFormat Failed!\n");
-        return FALSE;
-    }
-
-    openGLRC = wglCreateContext(hDC);
-    if (openGLRC == NULL)
-    {
-        sprintf(buffer, "Error %d: wglCreateContext Failed!\n", GetLastError());
-        OutputDebugStringA(buffer);
-        return FALSE;
-    }
-    bResult = wglMakeCurrent(hDC, openGLRC);
-    if (bResult == FALSE)
-    {
-        sprintf(buffer, "Error %d: wglMakeCurrent Failed!\n", GetLastError());
-        OutputDebugStringA(buffer);
-        return FALSE;
-    }
-
-    sprintf(buffer, "OpenGL version info: %s\n", (char*)glGetString(GL_VERSION));
     OutputDebugStringA(buffer);
     return TRUE;
 }
@@ -349,7 +229,7 @@ GLuint CreateHDRTexture(const char* imagePath)
 {
     //load hdr image file
 
-    HDRLoaderResult result = {0};
+    HDRLoaderResult result = { 0 };
     if (!HDRLoader::load(imagePath, result))
     {
         char buf[128];
@@ -403,9 +283,9 @@ GLuint CreateCubeMap(GLsizei width, GLsizei height)
 
 glm::vec3 lightPositions[] = {
     glm::vec3(-10.0f,  10.0f, 10.0f),
-    glm::vec3( 10.0f,  10.0f, 10.0f),
+    glm::vec3(10.0f,  10.0f, 10.0f),
     glm::vec3(-10.0f, -10.0f, 10.0f),
-    glm::vec3( 10.0f, -10.0f, 10.0f),
+    glm::vec3(10.0f, -10.0f, 10.0f),
 };
 glm::vec3 lightColors[] = {
     glm::vec3(300.0f, 300.0f, 300.0f),
@@ -421,12 +301,12 @@ glm::mat4 view;
 glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
 glm::mat4 captureViews[6] =
 {
-    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
     glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+    glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
 };
 
 BOOL InitOpenGL(HWND hWnd)
@@ -479,7 +359,11 @@ BOOL InitOpenGL(HWND hWnd)
     glUniform3f(uniformCamPos, camPos.x, camPos.y, camPos.z);
     glUseProgram(0);
 
-    _CheckGLError_
+    _CheckGLError_;
+
+    //
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
 
     //set up vertex and index buffer
     glGenBuffers(1, &vertexBuf);
@@ -492,25 +376,42 @@ BOOL InitOpenGL(HWND hWnd)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuf);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), (GLvoid*)indices, GL_STATIC_DRAW);
 
+    _CheckGLError_
+
     //set up attribute for positon, texcoord and normal
-    glVertexAttribPointer(attributePos,      3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
-    glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glVertexAttribPointer(attributeNormal,   3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
-    //enable attribute arrays
     glEnableVertexAttribArray(attributePos);
+    glVertexAttribPointer(attributePos, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
     glEnableVertexAttribArray(attributeTexCoord);
+    glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(attributeNormal);
+    glVertexAttribPointer(attributeNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
 
     _CheckGLError_
+
+    //create framebuffer and renderbuffer
+    glGenFramebuffers(1, &environmentFrameBuffer);
+    glGenRenderbuffers(1, &environmentRenderBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, environmentRenderBuffer);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        char buffer[512];
+        sprintf(buffer, "Error: Framebuffer is not complete!\n");
+        OutputDebugStringA(buffer);
+        DebugBreak();
+    }
 
     //other settings
     glViewport(0, 0, GLsizei(clientWidth), GLsizei(clientHeight));
     glClearColor(1, 1, 1, 1);
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-    glCullFace(GL_BACK);
+    //glEnable(GL_CULL_FACE);
+    //glFrontFace(GL_CCW);
+    //glCullFace(GL_BACK);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
     _CheckGLError_
 
@@ -536,18 +437,18 @@ void DestroyOpenGL(HWND hWnd)
 #include "CubeShader.h"
 #include "Cube.h"
 GLuint cubeProgram = 0,
-       cube_vertexArray = 0,
-       cube_vertexBuf = 0,
-       cube_indexBuf = 0,
-       equirectangularMap_texture = 0;
+cube_vertexArray = 0,
+cube_vertexBuf = 0,
+cube_indexBuf = 0,
+equirectangularMap_texture = 0;
 GLint cube_uniformProjection = -1,
-      cube_uniformView = -1,
-      cube_uniformEquirectangularMap = -1;
+cube_uniformView = -1,
+cube_uniformEquirectangularMap = -1;
 
 void RenderCube()
 {
     //create vertex array object
-    if(cube_vertexArray == 0)
+    if (cube_vertexArray == 0)
     {
         glGenVertexArrays(1, &cube_vertexArray);
 
@@ -558,9 +459,9 @@ void RenderCube()
 
         glBindVertexArray(cube_vertexArray);
         //set up attribute for positon, texcoord and normal
-        glVertexAttribPointer(attributePos,      3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
+        glVertexAttribPointer(attributePos, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
         glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glVertexAttribPointer(attributeNormal,   3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+        glVertexAttribPointer(attributeNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
         //enable attribute arrays
         glEnableVertexAttribArray(attributePos);
         glEnableVertexAttribArray(attributeTexCoord);
@@ -570,7 +471,9 @@ void RenderCube()
         glBindVertexArray(0);
     }
     glBindVertexArray(cube_vertexArray);
+    glBindBuffer(GL_ARRAY_BUFFER, cube_vertexBuf);
     glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
 
@@ -579,7 +482,7 @@ void RenderCube()
 void RenderEquirectangularMapToCube()
 {
     //create program object
-    if(cubeProgram == 0)
+    if (cubeProgram == 0)
     {
         cubeProgram = CreateShaderProgram(cubeVertexShader, equirectangularToCubemapFragmentShader);
         cube_uniformProjection = glGetUniformLocation(cubeProgram, "projection");
@@ -588,7 +491,7 @@ void RenderEquirectangularMapToCube()
     }
 
     //create vertex array object
-    if(cube_vertexArray == 0)
+    if (cube_vertexArray == 0)
     {
         glGenVertexArrays(1, &cube_vertexArray);
 
@@ -599,9 +502,9 @@ void RenderEquirectangularMapToCube()
 
         glBindVertexArray(cube_vertexArray);
         //set up attribute for positon, texcoord and normal
-        glVertexAttribPointer(attributePos,      3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
+        glVertexAttribPointer(attributePos, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
         glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glVertexAttribPointer(attributeNormal,   3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+        glVertexAttribPointer(attributeNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
         //enable attribute arrays
         glEnableVertexAttribArray(attributePos);
         glEnableVertexAttribArray(attributeTexCoord);
@@ -609,14 +512,14 @@ void RenderEquirectangularMapToCube()
     }
 
     //create texture object
-    if(equirectangularMap_texture == 0)
+    if (equirectangularMap_texture == 0)
     {
         const char* imagePath = hdrImagePath[currentHDRImageIndex];
         equirectangularMap_texture = CreateHDRTexture(imagePath);
     }
 
     //setup
-    glViewport(0,0, clientWidth, clientHeight);
+    glViewport(0, 0, clientWidth, clientHeight);
     glUseProgram(cubeProgram);
     glBindVertexArray(cube_vertexArray);
     glUniformMatrix4fv(cube_uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
@@ -636,18 +539,17 @@ void RenderEquirectangularMapToCube()
 }
 
 #include "SkyBoxShader.h"
-GLuint environmentFrameBuffer = 0, environmentRenderBuffer = 0, environmentCubeMap = 0;
-GLsizei environmentRenderBufferWidth = 512, environmentRenderBufferHeight = 512;
+GLuint environmentCubeMap = 0;
 GLuint skyBoxProgram = 0;
 GLint skyBoxUniformProjection = -1,
-      skyBoxUniformView = -1,
-      skyBoxUniformEnvironmentMap = -1;
+skyBoxUniformView = -1,
+skyBoxUniformEnvironmentMap = -1;
 
 //render environment equirectangular map to a cube map
 void RenderEquirectangularToCubeMap()
 {
     //create program object
-    if(cubeProgram == 0)
+    if (cubeProgram == 0)
     {
         cubeProgram = CreateShaderProgram(cubeVertexShader, equirectangularToCubemapFragmentShader);
         cube_uniformProjection = glGetUniformLocation(cubeProgram, "projection");
@@ -656,32 +558,20 @@ void RenderEquirectangularToCubeMap()
     }
 
     //create texture object
-    if(equirectangularMap_texture == 0)
+    if (equirectangularMap_texture == 0)
     {
         const char* imagePath = hdrImagePath[currentHDRImageIndex];
         equirectangularMap_texture = CreateHDRTexture(imagePath);
     }
 
     //create cubemap texture
-    if(environmentCubeMap == 0)
+    if (environmentCubeMap == 0)
     {
         environmentCubeMap = CreateCubeMap(environmentRenderBufferWidth, environmentRenderBufferHeight);
     }
 
-    //create framebuffer object
-    if(environmentFrameBuffer == 0)
-    {
-        glGenFramebuffers(1, &environmentFrameBuffer);
-        glGenRenderbuffers(1, &environmentRenderBuffer);
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, environmentRenderBufferWidth, environmentRenderBufferHeight);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, environmentRenderBuffer);
-
     //setup
-    glViewport(0,0,environmentRenderBufferWidth, environmentRenderBufferHeight);
+    glViewport(0, 0, environmentRenderBufferWidth, environmentRenderBufferHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
     glUseProgram(cubeProgram);
     glUniformMatrix4fv(cube_uniformProjection, 1, GL_FALSE, glm::value_ptr(captureProjection));
@@ -689,7 +579,7 @@ void RenderEquirectangularToCubeMap()
     glBindTexture(GL_TEXTURE_2D, equirectangularMap_texture);
     glUniform1i(cube_uniformEquirectangularMap, 0);
 
-    glDisable(GL_CULL_FACE);
+    //glDisable(GL_CULL_FACE);
     //draw
     for (int i = 0; i < 6; i++)
     {
@@ -699,28 +589,28 @@ void RenderEquirectangularToCubeMap()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         RenderCube();
     }
-    glEnable(GL_CULL_FACE);
-
-    glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
-    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 }
 
 //render environmentCubeMap as the background skybox to default framebuffer
 void RenderEnvironment()
 {
-    if(environmentCubeMap <= 0)
+    if (environmentCubeMap <= 0)
     {
         throw std::runtime_error("environmentCubeMap not ready");
     }
 
     //create vertex array object
-    if(cube_vertexArray == 0)
+    if (cube_vertexArray == 0)
     {
         glGenVertexArrays(1, &cube_vertexArray);
 
@@ -731,9 +621,9 @@ void RenderEnvironment()
 
         glBindVertexArray(cube_vertexArray);
         //set up attribute for positon, texcoord and normal
-        glVertexAttribPointer(attributePos,      3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
+        glVertexAttribPointer(attributePos, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
         glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glVertexAttribPointer(attributeNormal,   3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+        glVertexAttribPointer(attributeNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
         //enable attribute arrays
         glEnableVertexAttribArray(attributePos);
         glEnableVertexAttribArray(attributeTexCoord);
@@ -741,7 +631,7 @@ void RenderEnvironment()
     }
 
     //create skybox program object
-    if(skyBoxProgram == 0)
+    if (skyBoxProgram == 0)
     {
         skyBoxProgram = CreateShaderProgram(SkyBoxVertexShader, SkyBoxFragmentShader);
         skyBoxUniformProjection = glGetUniformLocation(skyBoxProgram, "projection");
@@ -750,11 +640,9 @@ void RenderEnvironment()
     }
 
     //setup
-    glViewport(0,0, clientWidth, clientHeight);
+    glViewport(0, 0, clientWidth, clientHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glUseProgram(skyBoxProgram);
-    glBindVertexArray(cube_vertexArray);
-    glBindBuffer(GL_ARRAY_BUFFER, cube_vertexBuf);
     glUniformMatrix4fv(skyBoxUniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(skyBoxUniformView, 1, GL_FALSE, glm::value_ptr(view));
     glActiveTexture(GL_TEXTURE0);
@@ -762,14 +650,12 @@ void RenderEnvironment()
     glUniform1i(skyBoxUniformEnvironmentMap, 0);
 
     //draw
-    glDisable(GL_CULL_FACE);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glEnable(GL_CULL_FACE);
+    //glDisable(GL_CULL_FACE);
+    RenderCube();
+    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -778,8 +664,8 @@ void RenderEnvironment()
 #include "IrradianceShader.h"
 GLuint irradianceCubeMap = 0, irradianceProgram = 0;
 GLint irradianceUniformEnvironmentMap = -1,
-      irradianceUniformProjection = -1,
-      irradianceUniformView = -1;
+irradianceUniformProjection = -1,
+irradianceUniformView = -1;
 void RenderEnvironmentCubeMapToIrradianceCubeMap()
 {
     //check cubemap texture
@@ -795,7 +681,7 @@ void RenderEnvironmentCubeMapToIrradianceCubeMap()
     }
 
     //create irradiance program object
-    if(irradianceProgram == 0)
+    if (irradianceProgram == 0)
     {
         irradianceProgram = CreateShaderProgram(cubeVertexShader, irradianceFragmentShader);
         irradianceUniformEnvironmentMap = glGetUniformLocation(irradianceProgram, "environmentMap");
@@ -817,16 +703,16 @@ void RenderEnvironmentCubeMapToIrradianceCubeMap()
     glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
 
     //draw
-    glDisable(GL_CULL_FACE);
+    //glDisable(GL_CULL_FACE);
     for (unsigned int i = 0; i < 6; ++i)
     {
         glUniformMatrix4fv(irradianceUniformView, 1, false, glm::value_ptr(captureViews[i]));
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceCubeMap, 0);
+            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceCubeMap, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         RenderCube();
     }
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
@@ -886,9 +772,9 @@ void RenderIrradianceEnvironment()
     glUniform1i(skyBoxUniformEnvironmentMap, 0);
 
     //draw
-    glDisable(GL_CULL_FACE);
+    //glDisable(GL_CULL_FACE);
     glDrawArrays(GL_TRIANGLES, 0, 36);
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
@@ -904,7 +790,7 @@ void SwitchHDRImage()
     currentHDRImageIndex = (currentHDRImageIndex + 1) % 3;
 
     //reset
-    if(equirectangularMap_texture > 0)
+    if (equirectangularMap_texture > 0)
     {
         glDeleteTextures(1, &equirectangularMap_texture);
         equirectangularMap_texture = 0;
@@ -922,56 +808,41 @@ void SwitchHDRImage()
 }
 
 #include "PreFilteredEnvironmentShader.h"
-GLuint prefilteredEnvironmentCubeMap = 0;
+GLuint prefilteredCubeMap = 0;
 GLuint preFilteredEnvironmentProgram = 0;
 GLint preFilteredEnvironmentUniformProjection = -1,
-      preFilteredEnvironmentUniformView = -1,
-      preFilteredEnvironmentUniformEnvironmentMap = -1,
-      preFilteredEnvironmentUniformRoughness = -1;
+preFilteredEnvironmentUniformView = -1,
+preFilteredEnvironmentUniformEnvironmentMap = -1,
+preFilteredEnvironmentUniformRoughness = -1;
 const uint32_t prefilteredEnvironmentCubeMapSize = 128;
 void RenderPrefilteredEnvironmentMapToCubeMap()
 {
     //create skybox cubemap that will be rendered onto
-    if(environmentCubeMap == 0)
+    if (environmentCubeMap == 0)
     {
         throw std::runtime_error("environmentCubeMap not ready");
     }
 
     //create pre-filtered environment cubemap
-    if(prefilteredEnvironmentCubeMap == 0)
+    glGenTextures(1, &prefilteredCubeMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredCubeMap);
+    for (int i = 0; i < 6; ++i)
     {
-        prefilteredEnvironmentCubeMap = CreateCubeMap(prefilteredEnvironmentCubeMapSize, prefilteredEnvironmentCubeMapSize);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredEnvironmentCubeMap);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 5);
-        glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0, GL_RGB, GL_FLOAT, nullptr);
     }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);//enable trilinear filtering
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 
-    //create framebuffer object
-    if(environmentFrameBuffer == 0)
-    {
-        glGenFramebuffers(1, &environmentFrameBuffer);
-        glGenRenderbuffers(1, &environmentRenderBuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
-        glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, environmentRenderBuffer);
-        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            char buffer[512];
-            sprintf(buffer, "Error: Framebuffer is not complete!\n");
-            OutputDebugStringA(buffer);
-            DebugBreak();
-        }
-    }
-
-    if(preFilteredEnvironmentProgram == 0)
-    {
-        preFilteredEnvironmentProgram = CreateShaderProgram(PreFilteredEnvironmentVertexShader, PreFilteredEnvironmentFragmentShader);
-        preFilteredEnvironmentUniformProjection = glGetUniformLocation(preFilteredEnvironmentProgram, "projection");
-        preFilteredEnvironmentUniformView = glGetUniformLocation(preFilteredEnvironmentProgram, "view");
-        preFilteredEnvironmentUniformEnvironmentMap = glGetUniformLocation(preFilteredEnvironmentProgram, "environmentMap");
-        preFilteredEnvironmentUniformRoughness = glGetUniformLocation(preFilteredEnvironmentProgram, "roughness");
-    }
+    //create shader program
+    preFilteredEnvironmentProgram = CreateShaderProgram(PreFilteredEnvironmentVertexShader, PreFilteredEnvironmentFragmentShader);
+    preFilteredEnvironmentUniformProjection = glGetUniformLocation(preFilteredEnvironmentProgram, "projection");
+    preFilteredEnvironmentUniformView = glGetUniformLocation(preFilteredEnvironmentProgram, "view");
+    preFilteredEnvironmentUniformEnvironmentMap = glGetUniformLocation(preFilteredEnvironmentProgram, "environmentMap");
+    preFilteredEnvironmentUniformRoughness = glGetUniformLocation(preFilteredEnvironmentProgram, "roughness");
 
     glUseProgram(preFilteredEnvironmentProgram);
     glUniform1i(preFilteredEnvironmentUniformEnvironmentMap, 0);
@@ -980,21 +851,19 @@ void RenderPrefilteredEnvironmentMapToCubeMap()
     glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
 
     glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
     uint32_t maxMipLevel = 5;
     for (uint32_t mipLevel = 0; mipLevel < maxMipLevel; mipLevel++)
     {
         uint32_t mipSize = prefilteredEnvironmentCubeMapSize * std::pow(0.5, mipLevel);
+        glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, mipSize, mipSize);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, environmentRenderBuffer);
         glViewport(0, 0, mipSize, mipSize);
         float roughtness = (float)mipLevel / (float)(maxMipLevel - 1);
         glUniform1f(preFilteredEnvironmentUniformRoughness, roughtness);
         for (uint32_t i = 0; i < 6; i++)
         {
             glUniformMatrix4fv(preFilteredEnvironmentUniformView, 1, GL_FALSE, glm::value_ptr(captureViews[i]));
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                prefilteredEnvironmentCubeMap, mipLevel);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, prefilteredCubeMap, mipLevel);
             if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
             {
                 char buffer[512];
@@ -1003,7 +872,9 @@ void RenderPrefilteredEnvironmentMapToCubeMap()
                 DebugBreak();
             }
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            //glDisable(GL_CULL_FACE);
             RenderCube();
+            //glEnable(GL_CULL_FACE);
         }
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1016,19 +887,19 @@ namespace _
 {
     GLuint program = 0;
     GLint uniformProjection = -1,
-          uniformView = -1,
-          uniformCubeMap = -1;
+        uniformView = -1,
+        uniformCubeMap = -1;
 }
 void RenderPrefilteredMapAsACube()
 {
     //check prefiltered environment cubeMap
-    if(prefilteredEnvironmentCubeMap == 0)
+    if (prefilteredCubeMap == 0)
     {
-        throw new std::runtime_error("prefilteredEnvironmentCubeMap is not ready!");
+        throw new std::runtime_error("prefilteredCubeMap is not ready!");
     }
 
     //create program object
-    if(_::program == 0)
+    if (_::program == 0)
     {
         _::program = CreateShaderProgram(cubeVertexShader, cubeFragmentShader);
         _::uniformProjection = glGetUniformLocation(cubeProgram, "projection");
@@ -1037,12 +908,12 @@ void RenderPrefilteredMapAsACube()
     }
 
     //setup
-    glViewport(0,0, clientWidth, clientHeight);
+    glViewport(0, 0, clientWidth, clientHeight);
     glUseProgram(_::program);
     glUniformMatrix4fv(_::uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(_::uniformView, 1, GL_FALSE, glm::value_ptr(view));
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredEnvironmentCubeMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredCubeMap);
     glUniform1i(_::uniformCubeMap, 0);
 
     //draw
@@ -1058,13 +929,13 @@ void RenderPrefilteredMapAsACube()
 #include "SkyBoxLODShader.h"
 GLuint skyBoxLODProgram = 0;
 GLint skyBoxLODUniformProjection = -1,
-      skyBoxLODUniformView = -1,
-      skyBoxLODUniformEnvironmentMap = -1;
+skyBoxLODUniformView = -1,
+skyBoxLODUniformEnvironmentMap = -1;
 void RenderPrefilteredEnvironmentSkyBox()
 {
-    if (prefilteredEnvironmentCubeMap == 0)
+    if (prefilteredCubeMap == 0)
     {
-        throw std::runtime_error("prefilteredEnvironmentCubeMap not ready");
+        throw std::runtime_error("prefilteredCubeMap not ready");
     }
 
     //create skybox program object
@@ -1083,13 +954,12 @@ void RenderPrefilteredEnvironmentSkyBox()
     glUniformMatrix4fv(skyBoxLODUniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(skyBoxLODUniformView, 1, GL_FALSE, glm::value_ptr(view));
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredEnvironmentCubeMap);
-    glUniform1i(skyBoxLODUniformEnvironmentMap, 0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredCubeMap);
 
     //draw
-    glDisable(GL_CULL_FACE);
+    //glDisable(GL_CULL_FACE);
     RenderCube();
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
@@ -1102,15 +972,16 @@ void RenderPrefilteredEnvironmentSkyBox()
 
 void RenderModel()
 {
-    int nrRows    = 7;
+    int nrRows = 7;
     int nrColumns = 7;
     float spacing = 1.2;
 
     auto now = std::chrono::high_resolution_clock::now();
     auto time_span = now - startTime;
-    auto passedTime = time_span.count()/1000;
+    auto passedTime = time_span.count() / 1000;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuf);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuf);
     glUseProgram(program);
@@ -1149,39 +1020,156 @@ void RenderModel()
             ));
             glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 
-            glDrawElements(GL_TRIANGLES, sizeof(indices)/3, GL_UNSIGNED_INT, 0);
+            glDrawElements(GL_TRIANGLES, sizeof(indices) / 3, GL_UNSIGNED_INT, 0);
         }
     }
+    glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glUseProgram(0);
     _CheckGLError_
 }
 
-void Render()
+BOOL CreateOpenGLRenderContext(HWND hWnd)
 {
-    glViewport(0,0, clientWidth, clientHeight);
-    // clear
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    BOOL bResult;
+    char buffer[128];
+    PIXELFORMATDESCRIPTOR pfd = {
+        sizeof(PIXELFORMATDESCRIPTOR),  //  size of this pfd
+        1,                     // version number
+        PFD_DRAW_TO_WINDOW |   // support window
+        PFD_SUPPORT_OPENGL |   // support OpenGL
+        PFD_DOUBLEBUFFER,      // double buffered
+        PFD_TYPE_RGBA,         // RGBA type
+        32,                    // 32-bit color depth
+        0, 0, 0, 0, 0, 0,      // color bits ignored
+        0,                     // no alpha buffer
+        0,                     // shift bit ignored
+        0,                     // no accumulation buffer
+        0, 0, 0, 0,            // accum bits ignored
+        24,                    // 24-bit z-buffer
+        8,                     // 8-bit stencil buffer
+        0,                     // no auxiliary buffer
+        PFD_MAIN_PLANE,        // main layer
+        0,                     // reserved
+        0, 0, 0                // layer masks ignored
+    };
 
-    // draw model
-    //RenderModel();
-
-    if(environmentCubeMap == 0)
+    hDC = GetDC(hWnd);
+    if (hDC == NULL)
     {
-        RenderEquirectangularToCubeMap();
+        OutputDebugStringA("Error: GetDC Failed!\n");
+        return FALSE;
     }
 
-    if(prefilteredEnvironmentCubeMap == 0)
+    int pixelFormatIndex;
+    pixelFormatIndex = ChoosePixelFormat(hDC, &pfd);
+    if (pixelFormatIndex == 0)
     {
-        RenderPrefilteredEnvironmentMapToCubeMap();
+        sprintf(buffer, "Error %d: ChoosePixelFormat Failed!\n", GetLastError());
+        OutputDebugStringA(buffer);
+        return FALSE;
+    }
+    bResult = SetPixelFormat(hDC, pixelFormatIndex, &pfd);
+    if (bResult == FALSE)
+    {
+        OutputDebugStringA("SetPixelFormat Failed!\n");
+        return FALSE;
     }
 
-    //RenderPrefilteredMapAsACube();
+    openGLRC = wglCreateContext(hDC);
+    if (openGLRC == NULL)
+    {
+        sprintf(buffer, "Error %d: wglCreateContext Failed!\n", GetLastError());
+        OutputDebugStringA(buffer);
+        return FALSE;
+    }
+    bResult = wglMakeCurrent(hDC, openGLRC);
+    if (bResult == FALSE)
+    {
+        sprintf(buffer, "Error %d: wglMakeCurrent Failed!\n", GetLastError());
+        OutputDebugStringA(buffer);
+        return FALSE;
+    }
 
-    RenderPrefilteredEnvironmentSkyBox();
+    sprintf(buffer, "OpenGL version info: %s\n", (char*)glGetString(GL_VERSION));
+    OutputDebugStringA(buffer);
+    return TRUE;
+}
 
-    _CheckGLError_
+int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in_opt LPSTR lpCmdLine, __in int nShowCmd)
+{
+    BOOL bResult = FALSE;
 
-    SwapBuffers(hDC);
+    WNDCLASS wc = { 0 };
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInstance;
+    wc.hbrBackground = (HBRUSH)(COLOR_BACKGROUND);
+    wc.lpszClassName = L"PBR04-IBL-specularWindowClass";
+    wc.style = CS_OWNDC;
+    if (!RegisterClass(&wc))
+        return 1;
+    HWND hWnd = CreateWindowW(wc.lpszClassName, L"PBR04-IBL-specular", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 800, 600, 0, 0, hInstance, 0);
+
+    bResult = CreateOpenGLRenderContext(hWnd);
+    if (bResult == FALSE)
+    {
+        OutputDebugStringA("CreateOpenGLRenderContext failed!\n");
+        return 1;
+    }
+    InitGLEW();
+
+    ShowWindow(hWnd, nShowCmd);
+    UpdateWindow(hWnd);
+
+    // get client size
+    if (!GetClientRect(hWnd, &clientRect))
+    {
+        OutputDebugString(L"GetClientRect Failed!\n");
+        return FALSE;
+    }
+    clientWidth = clientRect.right - clientRect.left;
+    clientHeight = clientRect.bottom - clientRect.top;
+
+    //set up OpenGL
+    InitOpenGL(hWnd);
+
+    RenderEquirectangularToCubeMap();
+    RenderPrefilteredEnvironmentMapToCubeMap();
+
+    startTime = std::chrono::high_resolution_clock::now();
+    MSG msg = {};
+    while (true)
+    {
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != 0)
+        {
+            if (msg.message == WM_QUIT)
+            {
+                break;
+            }
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        else
+        {
+            glViewport(0, 0, clientWidth, clientHeight);
+            // clear
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // draw model
+            RenderModel();
+
+            //RenderPrefilteredMapAsACube();
+
+            RenderPrefilteredEnvironmentSkyBox();
+
+            //RenderEnvironment();
+
+            _CheckGLError_
+
+            SwapBuffers(hDC);
+        }
+    }
+
+    return 0;
 }
