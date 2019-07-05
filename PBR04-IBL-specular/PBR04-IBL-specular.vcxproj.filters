@@ -28,8 +28,12 @@
     <ClInclude Include="IrradianceShader.h">
       <Filter>Shader</Filter>
     </ClInclude>
-    <ClInclude Include="PrefilteredEnvironmentShader.h" />
-    <ClInclude Include="SkyBoxLODShader.h" />
+    <ClInclude Include="PrefilteredEnvironmentShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="SkyBoxLODShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shader">

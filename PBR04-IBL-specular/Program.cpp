@@ -48,6 +48,9 @@ GLsizei environmentRenderBufferWidth = 512, environmentRenderBufferHeight = 512;
 const char* hdrImagePath[] = { "Brooklyn_Bridge_Planks_2k.hdr", "Bryant_Park_2k.hdr","Factory_Catwalk_2k.hdr" };
 int currentHDRImageIndex = 2;
 
+//input
+float mouseX = 0, mouseY = 0;
+
 //misc
 int clientWidth;
 int clientHeight;
@@ -86,6 +89,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             return 0;
         }
+	case WM_MOUSEMOVE:
+		mouseX = LOWORD(lParam);
+		mouseY = HIWORD(lParam);
+		if (mouseY < 0)
+			mouseY = 0;
+		if (mouseY > clientHeight)
+			mouseY = clientHeight;
+		return 0;
+		break;
     case WM_SIZE:
         if(openGLRC != nullptr)
         {
@@ -346,10 +358,6 @@ BOOL InitOpenGL(HWND hWnd)
     projection = glm::perspective(glm::radians(45.0f), (float)clientWidth / (float)clientHeight, 0.1f, 100.0f);
     camPos = glm::vec3(6.5f, 6.5f, 6.5f);
     view = glm::lookAt(camPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-    //static projection and view
-    glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
-    glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(view));
 
     //static albedo and AO
     glUniform3f(uniformAlbedo, 0.2f, 0.2f, 0.2f);
@@ -989,6 +997,9 @@ void RenderModel()
     glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceCubeMap);
     glUniform1i(uniformIrradianceMap, 0);
 
+	glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(view));
+
     // render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
     // move light positions
     glm::vec3 newLightPositions[] = { glm::vec3(), glm::vec3(), glm::vec3(), glm::vec3() };
@@ -1023,6 +1034,7 @@ void RenderModel()
             glDrawElements(GL_TRIANGLES, sizeof(indices) / 3, GL_UNSIGNED_INT, 0);
         }
     }
+
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -1152,6 +1164,13 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
         }
         else
         {
+            //rotate camera around the view point according to mouse position
+            auto rotation = glm::quat(glm::vec3(0.001f*(clientHeight*0.5f - mouseY), 0.001f*(clientWidth*0.5f - mouseX), 0.0f));
+            camPos = glm::vec3(6.5f, 6.5f, 6.5f);
+            glm::vec4 p = glm::vec4(camPos, 0);
+            camPos = rotation * p;
+            view = glm::lookAt(camPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
             glViewport(0, 0, clientWidth, clientHeight);
             // clear
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
