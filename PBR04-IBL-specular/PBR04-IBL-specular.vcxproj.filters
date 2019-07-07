@@ -34,6 +34,9 @@
     <ClInclude Include="SkyBoxLODShader.h">
       <Filter>Shader</Filter>
     </ClInclude>
+    <ClInclude Include="ConvolutedBRDFShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shader">

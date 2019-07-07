@@ -175,7 +175,7 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* fShaderStr)
             free(infoLog);
         }
         glDeleteShader(vShader);
-        return -1;
+        throw std::runtime_error("Failed to compile the vertex shader.");
     }
 
     //Fragment shader
@@ -203,7 +203,7 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* fShaderStr)
             free(infoLog);
         }
         glDeleteShader(pShader);
-        return -1;
+        throw std::runtime_error("Failed to compile the fragment shader.");
     }
 
     //Program
@@ -232,7 +232,7 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* fShaderStr)
             free(infoLog);
         }
         glDeleteProgram(program);
-        return -1;
+        throw std::runtime_error("Failed to link the shader program.");
     }
     return program;
 }
@@ -414,9 +414,7 @@ BOOL InitOpenGL(HWND hWnd)
     //other settings
     glViewport(0, 0, GLsizei(clientWidth), GLsizei(clientHeight));
     glClearColor(1, 1, 1, 1);
-    //glEnable(GL_CULL_FACE);
-    //glFrontFace(GL_CCW);
-    //glCullFace(GL_BACK);
+    glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
@@ -485,6 +483,37 @@ void RenderCube()
     glBindVertexArray(0);
 }
 
+GLuint quadVAO, quadVBO;
+void RenderQuad()
+{
+    if(quadVAO == 0)
+    {
+        // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
+        float quadVertices[] = {
+            // positions   // texCoords
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            -1.0f, -1.0f,  0.0f, 0.0f,
+             1.0f, -1.0f,  1.0f, 0.0f,
+
+            -1.0f,  1.0f,  0.0f, 1.0f,
+             1.0f, -1.0f,  1.0f, 0.0f,
+             1.0f,  1.0f,  1.0f, 1.0f
+        };
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    }
+
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+}
 
 //test only: render equirectangular map on a unit cube
 void RenderEquirectangularMapToCube()
@@ -587,7 +616,6 @@ void RenderEquirectangularToCubeMap()
     glBindTexture(GL_TEXTURE_2D, equirectangularMap_texture);
     glUniform1i(cube_uniformEquirectangularMap, 0);
 
-    //glDisable(GL_CULL_FACE);
     //draw
     for (int i = 0; i < 6; i++)
     {
@@ -597,7 +625,6 @@ void RenderEquirectangularToCubeMap()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         RenderCube();
     }
-    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
@@ -658,9 +685,7 @@ void RenderEnvironment()
     glUniform1i(skyBoxUniformEnvironmentMap, 0);
 
     //draw
-    //glDisable(GL_CULL_FACE);
     RenderCube();
-    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
@@ -711,7 +736,6 @@ void RenderEnvironmentCubeMapToIrradianceCubeMap()
     glBindTexture(GL_TEXTURE_CUBE_MAP, environmentCubeMap);
 
     //draw
-    //glDisable(GL_CULL_FACE);
     for (unsigned int i = 0; i < 6; ++i)
     {
         glUniformMatrix4fv(irradianceUniformView, 1, false, glm::value_ptr(captureViews[i]));
@@ -720,7 +744,6 @@ void RenderEnvironmentCubeMapToIrradianceCubeMap()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         RenderCube();
     }
-    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
@@ -780,9 +803,7 @@ void RenderIrradianceEnvironment()
     glUniform1i(skyBoxUniformEnvironmentMap, 0);
 
     //draw
-    //glDisable(GL_CULL_FACE);
     glDrawArrays(GL_TRIANGLES, 0, 36);
-    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
@@ -880,9 +901,7 @@ void RenderPrefilteredEnvironmentMapToCubeMap()
                 DebugBreak();
             }
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            //glDisable(GL_CULL_FACE);
             RenderCube();
-            //glEnable(GL_CULL_FACE);
         }
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -965,9 +984,7 @@ void RenderPrefilteredEnvironmentSkyBox()
     glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredCubeMap);
 
     //draw
-    //glDisable(GL_CULL_FACE);
     RenderCube();
-    //glEnable(GL_CULL_FACE);
 
     //restore
     glUseProgram(0);
@@ -976,6 +993,49 @@ void RenderPrefilteredEnvironmentSkyBox()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     _CheckGLError_
+}
+
+#include "ConvolutedBRDFShader.h"
+GLuint brdfLUTTexture = 0;
+GLuint ConvolutedBRDFProgram = 0;
+void RenderConvolutedBRDFToTexture()
+{
+    ConvolutedBRDFProgram = CreateShaderProgram(ConvolutedBRDFVertexShader, ConvolutedBRDFFragmentShader);
+
+    glGenTextures(1, &brdfLUTTexture);
+
+    // pre-allocate enough memory for the LUT texture.
+    glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, environmentFrameBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, environmentRenderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfLUTTexture, 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        OutputDebugStringA("Error: Framebuffer is not complete!\n");
+        DebugBreak();
+    }
+    glViewport(0, 0, 512, 512);
+    glUseProgram(ConvolutedBRDFProgram);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderQuad();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void RenderConvolutedBRDFTextureToScreen()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glUseProgram(ConvolutedBRDFProgram);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+    RenderQuad();
 }
 
 void RenderModel()
@@ -1147,7 +1207,9 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
     InitOpenGL(hWnd);
 
     RenderEquirectangularToCubeMap();
+    RenderEnvironmentCubeMapToIrradianceCubeMap();
     RenderPrefilteredEnvironmentMapToCubeMap();
+    RenderConvolutedBRDFToTexture();
 
     startTime = std::chrono::high_resolution_clock::now();
     MSG msg = {};
@@ -1183,6 +1245,8 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
             RenderPrefilteredEnvironmentSkyBox();
 
             //RenderEnvironment();
+
+            RenderConvolutedBRDFTextureToScreen();
 
             _CheckGLError_
 
