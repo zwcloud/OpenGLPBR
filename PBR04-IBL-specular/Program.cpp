@@ -13,6 +13,8 @@
 //for hdr image
 #include "../HDRLoader/hdrloader.h"
 #include <stdexcept>
+//
+#include "../Shared/textures/Texture.h"
 
 #pragma comment (lib, "../../GLEW/glew32.lib")
 #pragma comment (lib, "opengl32.lib")
@@ -1183,6 +1185,8 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
         return 1;
     HWND hWnd = CreateWindowW(wc.lpszClassName, L"PBR04-IBL-specular", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 800, 600, 0, 0, hInstance, 0);
 
+    ExtractHDRTextures(hInstance);
+
     bResult = CreateOpenGLRenderContext(hWnd);
     if (bResult == FALSE)
     {
@@ -1246,7 +1250,7 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 
             //RenderEnvironment();
 
-            RenderConvolutedBRDFTextureToScreen();
+            //RenderConvolutedBRDFTextureToScreen();
 
             _CheckGLError_
 
