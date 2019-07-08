@@ -1257,11 +1257,12 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
             // draw model
             RenderModel();
 
+            // draw skybox
+            RenderEnvironment();
+
             //RenderPrefilteredMapAsACube();
 
-            RenderPrefilteredEnvironmentSkyBox();
-
-            //RenderEnvironment();
+            //RenderPrefilteredEnvironmentSkyBox();
 
             //RenderConvolutedBRDFTextureToScreen();
 
