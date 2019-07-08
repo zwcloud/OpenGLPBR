@@ -1,6 +1,4 @@
 #pragma once
-//from https://learnopengl.com/PBR/Lighting
-
 const char* vShaderStr = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
@@ -45,6 +43,8 @@ uniform vec3 lightColors[4];
 uniform vec3 camPos;
 
 uniform samplerCube irradianceMap;
+uniform samplerCube prefilterMap;
+uniform sampler2D   brdfLUT;
 
 const float PI = 3.14159265359;
 // ----------------------------------------------------------------------------
@@ -86,6 +86,11 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+// ----------------------------------------------------------------------------
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 // ----------------------------------------------------------------------------
 void main()
@@ -141,7 +146,18 @@ void main()
     vec3 kD = 1.0 - kS;
     vec3 irradiance = texture(irradianceMap, N).rgb;
     vec3 diffuse    = irradiance * albedo;
-    vec3 ambient    = (kD * diffuse) * ao;
+
+    vec3 R = reflect(-V, N);
+
+    //indirect specular reflections
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 prefilteredColor = textureLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
+
+    vec3 F        = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    vec2 envBRDF  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+    vec3 ambient = (kD * diffuse + specular) * ao;
 
     vec3 color = ambient + Lo;
 

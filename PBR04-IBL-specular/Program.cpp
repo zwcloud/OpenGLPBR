@@ -42,6 +42,8 @@ GLint uniformRoughness = -1;
 GLint uniformLightPositions = -1;
 GLint uniformLightColors = -1;
 GLint uniformIrradianceMap = -1;
+GLint uniformPrefilterMap = -1;
+GLint uniformBRDFLUT = -1;
 GLenum err = GL_NO_ERROR;
 
 GLuint environmentFrameBuffer = 0, environmentRenderBuffer = 0;
@@ -350,8 +352,10 @@ BOOL InitOpenGL(HWND hWnd)
 
     GLint uniformCamPos = glGetUniformLocation(program, "camPos");
 
-    // environment map
+    // textures
     uniformIrradianceMap = glGetUniformLocation(program, "irradianceMap");
+    uniformPrefilterMap = glGetUniformLocation(program, "prefilterMap");
+    uniformBRDFLUT = glGetUniformLocation(program, "brdfLUT");
 
     _CheckGLError_
 
@@ -1055,9 +1059,18 @@ void RenderModel()
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuf);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuf);
     glUseProgram(program);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceCubeMap);
     glUniform1i(uniformIrradianceMap, 0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilteredCubeMap);
+    glUniform1i(uniformPrefilterMap, 1);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+    glUniform1i(uniformBRDFLUT, 2);
 
 	glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
 	glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(view));
