@@ -63,7 +63,6 @@ BOOL InitGLEW();
 BOOL InitOpenGL(HWND hWnd);
 void DestroyOpenGL(HWND hWnd);
 void SwitchHDRImage();
-void Render();
 void fnCheckGLError(const char* szFile, int nLine);
 #define _CheckGLError_ fnCheckGLError(__FILE__,__LINE__);
 
@@ -777,7 +776,7 @@ void RenderIrradianceEnvironment()
         glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), (GLvoid*)cube_vertices, GL_STATIC_DRAW);
 
         glBindVertexArray(cube_vertexArray);
-        //set up attribute for positon, texcoord and normal
+        //set up attribute for position, texcoord and normal
         glVertexAttribPointer(attributePos, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), 0);
         glVertexAttribPointer(attributeTexCoord, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
         glVertexAttribPointer(attributeNormal, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
@@ -1244,7 +1243,7 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
         else
         {
             //rotate camera around the view point according to mouse position
-            auto rotation = glm::quat(glm::vec3(0.001f*(clientHeight*0.5f - mouseY), 0.001f*(clientWidth*0.5f - mouseX), 0.0f));
+            auto rotation = glm::quat(glm::vec3(0.005f*(clientHeight*0.5f - mouseY), 0.005f*(clientWidth*0.5f - mouseX), 0.0f));
             camPos = glm::vec3(6.5f, 6.5f, 6.5f);
             glm::vec4 p = glm::vec4(camPos, 0);
             camPos = rotation * p;
