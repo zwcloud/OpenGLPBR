@@ -13,7 +13,6 @@
 //for hdr image
 #include "../HDRLoader/hdrloader.h"
 #include <stdexcept>
-//
 #include "../Shared/textures/Texture.h"
 
 #pragma comment (lib, "../../GLEW/glew32.lib")

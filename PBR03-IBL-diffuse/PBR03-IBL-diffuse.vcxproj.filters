@@ -5,6 +5,9 @@
     <ClCompile Include="..\HDRLoader\hdrloader.cpp">
       <Filter>HDRLoader</Filter>
     </ClCompile>
+    <ClCompile Include="..\Shared\textures\Texture.cpp">
+      <Filter>Texture</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CubeShader.h">
@@ -28,6 +31,10 @@
     <ClInclude Include="IrradianceShader.h">
       <Filter>Shader</Filter>
     </ClInclude>
+    <ClInclude Include="..\Shared\textures\Texture.h">
+      <Filter>Texture</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shader">
@@ -39,5 +46,11 @@
     <Filter Include="HDRLoader">
       <UniqueIdentifier>{0febb46e-452c-4c71-b669-62c8d11c7c3b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Texture">
+      <UniqueIdentifier>{895f00f3-6a9b-490c-a2a9-7d7626e3a2d1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
 </Project>

@@ -41,9 +41,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -91,16 +93,22 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\HDRLoader\hdrloader.cpp" />
+    <ClCompile Include="..\Shared\textures\Texture.cpp" />
     <ClCompile Include="Program.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\HDRLoader\hdrloader.h" />
+    <ClInclude Include="..\Shared\textures\Texture.h" />
     <ClInclude Include="Cube.h" />
     <ClInclude Include="IrradianceShader.h" />
     <ClInclude Include="PBRShader.hpp" />
     <ClInclude Include="CubeShader.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="SkyBoxShader.h" />
     <ClInclude Include="Sphere.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

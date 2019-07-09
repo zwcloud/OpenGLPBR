@@ -13,6 +13,7 @@
 //for hdr image
 #include "../HDRLoader/hdrloader.h"
 #include <stdexcept>
+#include "../Shared/textures/Texture.h"
 
 #pragma comment (lib, "../../GLEW/glew32.lib")
 #pragma comment (lib, "opengl32.lib")
@@ -73,6 +74,8 @@ int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
     if (!RegisterClass(&wc))
         return 1;
     HWND hWnd = CreateWindowW(wc.lpszClassName, L"PBR03-IBL-diffuse", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 800, 600, 0, 0, hInstance, 0);
+
+    ExtractHDRTextures(hInstance);
 
     ShowWindow(hWnd, nShowCmd);
     UpdateWindow(hWnd);
