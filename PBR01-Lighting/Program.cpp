@@ -3,6 +3,7 @@
 #include <cassert>
 #include <chrono>
 //for GLEW
+#define GLEW_STATIC
 #include "../GLEW/include/GL/glew.h"
 #include <GL/GL.h>
 //for math
@@ -11,7 +12,7 @@
 #include "../glm/ext.hpp" // perspective, translate, rotate
 #include "../glm/gtc/type_ptr.hpp" // value_ptr
 
-#pragma comment (lib, "../../GLEW/glew32.lib")
+#pragma comment (lib, "glew32s.lib")
 #pragma comment (lib, "opengl32.lib")
 
 //Global

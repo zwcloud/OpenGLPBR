@@ -56,13 +56,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)GLEW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
-    <CustomBuildStep>
-      <Command>if not exist "$(OutputPath)glew32.dll" (
-    copy /Y $(ProjectDir)..\GLEW\glew32.dll $(OutputPath)
-)</Command>
-      <Outputs>dummy</Outputs>
-      <Message>Deploying glew32.dll</Message>
-    </CustomBuildStep>
+    <CustomBuildStep />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -81,13 +75,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>$(SolutionDir)GLEW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
-    <CustomBuildStep>
-      <Command>if not exist "$(OutputPath)glew32.dll" (
-    copy /Y $(ProjectDir)..\GLEW\glew32.dll $(OutputPath)
-)</Command>
-      <Outputs>dummy</Outputs>
-      <Message>Deploying glew32.dll</Message>
-    </CustomBuildStep>
+    <CustomBuildStep />
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Program.cpp" />
