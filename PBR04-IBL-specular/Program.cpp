@@ -1,3 +1,4 @@
+//#define SingleModel
 #include <windows.h>
 #include <cstdio>
 #include <cassert>
@@ -37,6 +38,7 @@ GLint attributeNormal = 0;
 GLint uniformModel = -1;
 GLint uniformView = -1;
 GLint uniformProjection = -1;
+GLint uniformCamPos = -1;
 GLint uniformMetallic = -1;
 GLint uniformRoughness = -1;
 GLint uniformLightPositions = -1;
@@ -338,6 +340,8 @@ BOOL InitOpenGL(HWND hWnd)
     uniformModel = glGetUniformLocation(program, "model");
     uniformView = glGetUniformLocation(program, "view");
     uniformProjection = glGetUniformLocation(program, "projection");
+    //camera position
+    uniformCamPos = glGetUniformLocation(program, "camPos");
 
     // material parameters
     GLint uniformAlbedo = glGetUniformLocation(program, "albedo");
@@ -348,8 +352,6 @@ BOOL InitOpenGL(HWND hWnd)
     // lights
     uniformLightPositions = glGetUniformLocation(program, "lightPositions");
     uniformLightColors = glGetUniformLocation(program, "lightColors");
-
-    GLint uniformCamPos = glGetUniformLocation(program, "camPos");
 
     // textures
     uniformIrradianceMap = glGetUniformLocation(program, "irradianceMap");
@@ -368,8 +370,6 @@ BOOL InitOpenGL(HWND hWnd)
     glUniform3f(uniformAlbedo, 0.2f, 0.2f, 0.2f);
     glUniform1f(uniformAo, 1.0f);
 
-    //static camera position
-    glUniform3f(uniformCamPos, camPos.x, camPos.y, camPos.z);
     glUseProgram(0);
 
     _CheckGLError_;
@@ -1071,8 +1071,9 @@ void RenderModel()
     glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
     glUniform1i(uniformBRDFLUT, 2);
 
-	glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
-	glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(view));
+    glUniform3f(uniformCamPos, camPos.x, camPos.y, camPos.z);
 
     // render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
     // move light positions
@@ -1088,21 +1089,32 @@ void RenderModel()
     glUniform3fv(uniformLightColors, 4, (const GLfloat*)&lightColors[0]);
 
     glm::mat4 model = glm::mat4(1.0f);
+
+#ifdef SingleModel
+	int row = 0, col = 0;
+#else
     for (int row = 0; row < nrRows; ++row)
+#endif
     {
         glUniform1f(uniformMetallic, (float)row / (float)nrRows);
+#ifndef SingleModel
         for (int col = 0; col < nrColumns; ++col)
+#endif
         {
             // we clamp the roughness to 0.025 - 1.0 as perfectly smooth surfaces (roughness of 0.0) tend to look a bit off
             // on direct lighting.
             glUniform1f(uniformRoughness, glm::clamp((float)col / (float)nrColumns, 0.05f, 1.0f));
 
+#ifdef SingleModel
+			model = glm::mat4(4.0f);
+#else
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(
                 (col - (nrColumns / 2)) * spacing,
                 (row - (nrRows / 2)) * spacing,
                 0.0f
             ));
+#endif
             glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 
             glDrawElements(GL_TRIANGLES, sizeof(indices) / 3, GL_UNSIGNED_INT, 0);

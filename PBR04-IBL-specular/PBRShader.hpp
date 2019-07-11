@@ -142,19 +142,18 @@ void main()
     }
 
     // ambient lighting (environment lighting: diffuse).
-    vec3 kS = fresnelSchlick(max(dot(N, V), 0.0), F0);
+    vec3 F = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    vec3 kS = F;
     vec3 kD = 1.0 - kS;
-    vec3 irradiance = texture(irradianceMap, N).rgb;
+    vec3 irradiance = textureCube(irradianceMap, N).rgb;
     vec3 diffuse    = irradiance * albedo;
 
     vec3 R = reflect(-V, N);
 
     //indirect specular reflections
     const float MAX_REFLECTION_LOD = 4.0;
-    vec3 prefilteredColor = textureLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
-
-    vec3 F        = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-    vec2 envBRDF  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 prefilteredColor = textureCubeLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 envBRDF  = texture2D(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
     vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
     vec3 ambient = (kD * diffuse + specular) * ao;
