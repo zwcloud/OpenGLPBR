@@ -3,6 +3,7 @@
 #include "Windows.h"
 #include <stdint.h>
 #include <fstream>
+#include <sstream>
 
 DWORD pbrImageResourceIds[5] =
 {
@@ -36,6 +37,7 @@ void GetPBRTextureData(HMODULE hInstance, const char* imageFileName, uint8_t** d
             return;
         }
     }
-    *data = nullptr;
-    *dataByteSize = 0;
+    std::stringstream ss;
+    ss << "Cannot find" << "<" << imageFileName << "> in embeded images";
+    throw std::runtime_error(ss.str());
 }

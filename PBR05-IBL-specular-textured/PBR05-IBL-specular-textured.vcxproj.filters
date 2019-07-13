@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Program.cpp" />
+    <ClCompile Include="..\HDRLoader\hdrloader.cpp">
+      <Filter>HDRLoader</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\textures\HDRTextures.cpp">
+      <Filter>Texture</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\textures\PBRTextures.cpp">
+      <Filter>Texture</Filter>
+    </ClCompile>
+    <ClCompile Include="..\LodePNG\lodepng.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="CubeShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="SkyBoxShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="PBRShader.hpp">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="Cube.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Sphere.hpp">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HDRLoader\hdrloader.h">
+      <Filter>HDRLoader</Filter>
+    </ClInclude>
+    <ClInclude Include="IrradianceShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="PrefilteredEnvironmentShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="SkyBoxLODShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="ConvolutedBRDFShader.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="..\Shared\textures\HDRTextures.h">
+      <Filter>Texture</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Shared\textures\PBRTextures.h">
+      <Filter>Texture</Filter>
+    </ClInclude>
+    <ClInclude Include="..\LodePNG\lodepng.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{5f8b6f69-bd1c-4184-94bf-5f24b4f513cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model">
+      <UniqueIdentifier>{faacd8ce-1db5-4ac9-9960-1a7555696969}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="HDRLoader">
+      <UniqueIdentifier>{0febb46e-452c-4c71-b669-62c8d11c7c3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Texture">
+      <UniqueIdentifier>{06cccfa4-6f28-4c80-836a-675c6df3f5be}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
+  </ItemGroup>
+</Project>
