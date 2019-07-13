@@ -87,12 +87,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\HDRLoader\hdrloader.cpp" />
-    <ClCompile Include="..\Shared\textures\Texture.cpp" />
+    <ClCompile Include="..\Shared\textures\HDRTextures.cpp" />
     <ClCompile Include="Program.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\HDRLoader\hdrloader.h" />
-    <ClInclude Include="..\Shared\textures\Texture.h" />
+    <ClInclude Include="..\Shared\textures\HDRTextures.h" />
     <ClInclude Include="ConvolutedBRDFShader.h" />
     <ClInclude Include="Cube.h" />
     <ClInclude Include="IrradianceShader.h" />

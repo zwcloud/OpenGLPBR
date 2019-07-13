@@ -1,4 +1,4 @@
-﻿#include "Texture.h"
+﻿#include "HDRTextures.h"
 #include "resource.h"
 #include "Windows.h"
 #include <stdint.h>

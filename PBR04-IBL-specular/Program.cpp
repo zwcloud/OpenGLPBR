@@ -15,7 +15,7 @@
 //for hdr image
 #include "../HDRLoader/hdrloader.h"
 #include <stdexcept>
-#include "../Shared/textures/Texture.h"
+#include "../Shared/textures/HDRTextures.h"
 
 #pragma comment (lib, "glew32s.lib")
 #pragma comment (lib, "opengl32.lib")
