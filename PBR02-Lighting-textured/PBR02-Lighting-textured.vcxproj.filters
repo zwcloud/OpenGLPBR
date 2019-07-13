@@ -3,11 +3,26 @@
   <ItemGroup>
     <ClCompile Include="Program.cpp" />
     <ClCompile Include="..\LodePNG\lodepng.cpp" />
+    <ClCompile Include="..\Shared\textures\PBRTextures.cpp">
+      <Filter>Texture</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sphere.hpp" />
     <ClInclude Include="FragmentShader.hpp" />
     <ClInclude Include="VertexShader.hpp" />
     <ClInclude Include="..\LodePNG\lodepng.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="..\Shared\textures\PBRTextures.h">
+      <Filter>Texture</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Texture">
+      <UniqueIdentifier>{a7c165ff-7626-4379-9c66-5e8d5888a910}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

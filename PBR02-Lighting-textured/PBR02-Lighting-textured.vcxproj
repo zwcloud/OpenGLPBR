@@ -41,9 +41,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -79,13 +81,19 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\LodePNG\lodepng.cpp" />
+    <ClCompile Include="..\Shared\textures\PBRTextures.cpp" />
     <ClCompile Include="Program.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\LodePNG\lodepng.h" />
+    <ClInclude Include="..\Shared\textures\PBRTextures.h" />
     <ClInclude Include="FragmentShader.hpp" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="Sphere.hpp" />
     <ClInclude Include="VertexShader.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

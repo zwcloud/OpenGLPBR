@@ -13,11 +13,13 @@
 #include "../glm/gtc/type_ptr.hpp" // value_ptr
 //for png
 #include "../LodePNG/lodepng.h"
+#include "../Shared/textures/PBRTextures.h"
 
 #pragma comment (lib, "glew32s.lib")
 #pragma comment (lib, "opengl32.lib")
 
 //Global
+HINSTANCE globalHInstance;
 HDC hDC;
 HGLRC openGLRC;
 RECT clientRect;
@@ -64,6 +66,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 int __stdcall WinMain(__in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in_opt LPSTR lpCmdLine, __in int nShowCmd)
 {
     BOOL bResult = FALSE;
+
+    globalHInstance = hInstance;
 
     MSG msg = { 0 };
     WNDCLASS wc = { 0 };
@@ -343,10 +347,18 @@ GLuint CreateShaderProgram(const char* vShaderStr, const char* fShaderStr)
 GLuint CreateTexture(const char* imagePath)
 {
     GLuint texture = -1;
+
+    //get image png data pointer
+    uint8_t* pngData = nullptr;
+    uint32_t pngDataByteSize = 0;
+    GetPBRTextureData(globalHInstance, imagePath, &pngData, &pngDataByteSize);
+
+    //decode png to raw RGB buffer
     unsigned char* image = nullptr;
     unsigned int width = 0;
     unsigned int height = 0;
-    unsigned error = lodepng_decode24_file(&image, &width, &height, imagePath);
+    unsigned error = lodepng_decode_memory(&image, &width, &height,
+        pngData, pngDataByteSize, LodePNGColorType::LCT_RGB, 8);
     if (error)
     {
         char buf[128];
@@ -354,6 +366,7 @@ GLuint CreateTexture(const char* imagePath)
         OutputDebugStringA(buf);
     }
 
+    //generate and fill the texture
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
@@ -461,11 +474,11 @@ BOOL InitOpenGL(HWND hWnd)
     _CheckGLError_;
 
     //textures
-    albedoTexture = CreateTexture("textures/albedo.png");
-    normalTexture = CreateTexture("textures/normal.png");
-    metallicTexture = CreateTexture("textures/metallic.png");
-    roughnessTexture = CreateTexture("textures/roughness.png");
-    aoTexture = CreateTexture("textures/ao.png");
+    albedoTexture = CreateTexture("albedo.png");
+    normalTexture = CreateTexture("normal.png");
+    metallicTexture = CreateTexture("metallic.png");
+    roughnessTexture = CreateTexture("roughness.png");
+    aoTexture = CreateTexture("ao.png");
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, albedoTexture);
